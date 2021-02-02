@@ -1,0 +1,91 @@
+Graph-State-Machine
+===================
+
+.. image:: https://img.shields.io/pypi/v/Graph-State-Machine.svg
+    :target: https://pypi.python.org/pypi/Graph-State-Machine/
+    :alt: Latest PyPI version
+
+.. image:: https://pepy.tech/badge/Graph-State-Machine
+    :target: https://pepy.tech/project/Graph-State-Machine
+    :alt: Package Downloads
+
+.. image:: https://img.shields.io/pypi/pyversions/Graph-State-Machine.svg
+    :target: https://pypi.python.org/pypi/Graph-State-Machine/
+    :alt: Python Versions
+
+.. image:: https://github.com/T-Flet/Graph-State-Machine/workflows/Python%20package/badge.svg
+    :target: https://github.com/T-Flet/Graph-State-Machine/actions?query=workflow%3A%22Python+package%22
+    :alt: Build
+
+.. image:: https://img.shields.io/pypi/l/Graph-State-Machine.svg
+    :target: https://github.com/T-Flet/Graph-State-Machine/blob/master/LICENSE
+    :alt: License
+
+
+A simple framework for building generalised FSMs where states are combinations of a graph's (typed) nodes; an example use would be as intuitive backend logic by pathing through an ontology.
+
+
+Installation
+------------
+::
+
+    pip install Graph_State_Machine
+
+
+
+Description
+-----------
+
+This package implements a computational construct which is essentially a finite state machine over a graph, where states are node combinations and where the transition function is arbitrary.
+(Note that this last arbitrariness makes the system Turing complete since it allows implementing a Turing machine with it)
+
+Given a graph with nodes which have types and a state (e.g. a list of nodes), the construct applies two functions to perform a step:
+
+- A function to scan the graph "around" the state possibly by node type (quotes since this definition is up to the user; neighbouring nodes is an example) and return a scored (and thus ordered) list of candidate nodes to "add" to the state (again, quotes because the processing is arbitrary)
+- A function to process the scan result and thus update the state AND possibly the graph itself (hence Turing completeness)
+
+Besides pure academic exploration of the construct, some possible uses of it are:
+- implementing backend logics which are best represented by graphs, e.g. an "expert system"
+- pathing through ontologies by entity nearness, e.g. building a sentence out of a word ontology
+
+
+Design
+------
+
+The main class exported by this package is :code:``GSM`, which contains the following 4 fields:
+
+- A :code:`Graph`: a graph object with typed nodes built around a Networkx Graph, with utility methods so that it can
+
+        - be built from shorthand notation (structured edge lists)
+        - check its own consistency
+        - self-display
+        - extend itself by joining up with another with common nodes (exact ontology matching)
+- A :code:`State`: the initial state; the default type is a simple list of nodes (strings), but it can be anything as long as:
+
+    - the used :code:`Scanner` function is designed to handle it
+    - a function to extract a list of strings from it is provided as the :code:`state_to_list` argument
+
+    An intuitive non-list-of-nodes example would be a dictionary of lists of nodes in which only some subsets of which are considered for graph exploration and others for state updating, e.g. keeping track of what nodes were initial state and which ones were added by steps
+- A :code:`Scanner`: a function taking in a list of state nodes to use to determine next-step candidates
+- An :code:`Updater`: a function taking in the current state and graph along with the result of a node scan and returns the updated state and graph (the graph is likely not going to be modified in most cases, but the facility is there)
+- As mentioned above, a :code:`state_to_list` function to extract a list of strings from the state (in case it is not one already) to give the :code:`Scanner`
+
+Note: given that the :code:`Graph` wraps a Networkx Graph, arbitrary node and edge attributes can be used to enhance the processing functions.
+
+
+Simple Example
+--------------
+A GSM which determines the appropriate R regression function and distribution family from labelled data features:
+
+- Define a numerical data-type ontology graph in the typed edge-list shorthand which :code:`Graph` accepts along with ready-made Networkx graphs, making use of two simple notation helper functions
+- Create a default-settings :code:`GSM` with it and a simple starting state
+- Ask it to perform steps focussing on the node types of 'Distribution', 'Method Function' and 'Family Implementation', which in this context just means finding the most appropriate of each
+
+.. literalinclude:: Graph_State_Machine/self_contained_showcase.py
+
+.. figure:: showcase_graph.png
+    :align: center
+    :figclass: align-center
+
+In particular, the 'Method Function' scan result is performed separately while peeking at the scan result to show that there is a tie between a Frequentist and a Bayesian method.
+This is a trivial example (in that the simple addition could have been there from the beginning) of where a broader graph could be attached by :code:`gsm.extend_with(...)` and new state introduced (the user's statistical preference in this case) in order to resolve the tie.

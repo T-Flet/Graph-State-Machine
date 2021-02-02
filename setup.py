@@ -15,14 +15,14 @@ def read(filename):
 
 setup(
     name = 'Graph-State-Machine',
-    version = '0.1.0',
+    version = '0.2.0', # Update in package __init__ too
     url = 'https://github.com/T-Flet/Graph-State-Machine',
     license = 'MIT',
 
     author = 'Thomas Fletcher',
     author_email = 'T-Fletcher@outlook.com',
 
-    description = "A simple framework for building FSMs where states are combinations of a graph's (typed) nodes; an example use would be as intuitive back-end logic by pathing through an ontology",
+    description = "A simple framework for building generalised FSMs where states are combinations of a graph's (typed) nodes; an example use would be as intuitive backend logic by pathing through an ontology",
     long_description = read('README.rst'),
 
     packages = find_packages(exclude = ('tests',)),
