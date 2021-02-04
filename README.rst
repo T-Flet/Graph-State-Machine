@@ -60,14 +60,15 @@ The main class exported by this package is :code:`GSM`, which contains the follo
 
     - the used :code:`Scanner` function is designed to handle it
     - a function to extract a list of strings from it is provided as the :code:`state_to_list` argument
-
-    An intuitive non-list-of-nodes example would be a dictionary of lists of nodes in which only some subsets of which are considered for graph exploration and others for state updating, e.g. keeping track of what nodes were initial state and which ones were added by steps
 - A :code:`Scanner` (:code:`Graph -> List[Node] -> Optional[NodeType] -> List[Tuple[Node, Any]]`): a function taking in a list of state nodes to use to determine next-step candidates, optionally focussing only on a specific node type
 - An :code:`Updater` (:code:`State -> Graph -> ScanResult -> Tuple[State, Graph]`): a function taking in the current state and graph along with the result of a node scan and returns the updated state and graph (the graph is likely not going to be modified in most cases, but the facility is there for Turing completeness)
 - As mentioned above, a :code:`state_to_list` function to extract a list of strings from the state (in case it is not one already) to give the :code:`Scanner`
 
 Note: given that the :code:`Graph` wraps a Networkx Graph, arbitrary node and edge attributes can be used to enhance the processing functions.
 
+An intuitive example of :code:`State` which is not a simple list of nodes is a dictionary of lists of nodes only some subsets of which are considered for graph exploration and others for state updating, e.g. keeping track of what nodes were initial state and which ones were added by steps.
+Simple default constructor functions for this :code:`State` type are provided:
+:code:`dict_fields_getter` (for :code:`state_to_list`), which takes in the list of fields to concatenate, and :code:`list_in_dict_accumulator` (for :code:`Updater`), which takes in the single field to update.
 
 Simple Example
 --------------
