@@ -15,7 +15,7 @@ def read(filename):
 
 setup(
     name = 'Graph-State-Machine',
-    version = '0.2.0', # Update in package __init__ too
+    version = '0.3.0', # Update in package __init__ too
     url = 'https://github.com/T-Flet/Graph-State-Machine',
     license = 'MIT',
 

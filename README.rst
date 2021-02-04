@@ -119,6 +119,7 @@ A GSM which determines the appropriate R linear regression function and distribu
     gsm.consecutive_steps(['Distribution', 'Family Implementation']) # Perform 2 steps
     print(gsm._step_res('Method Function')) # Peek at intermediate value of new a step
     gsm.step('Method Function') # Perform the step
+    gsm.step('NON EXISTING TYPE') # Trigger a warning and no State changes
 
     print(gsm)
 
