@@ -6,13 +6,14 @@ from copy import deepcopy
 from Graph_State_Machine.Util.generic_util import diff, group_by
 
 from typing import *
+Node = str
 NodeType = str
-TypedAdjacencies = Dict[NodeType, Dict[str, List[str]]]
+TypedAdjacencies = Dict[NodeType, Dict[Node, List[Node]]]
 
 
 class Graph:
     def __init__(self, G: Union[nx.Graph, TypedAdjacencies], type_attr: NodeType = 'node_type'):
-        '''Note: the constructor accepts either a Networkx Graph or a Dict[str, Dict[str, List[str]]] (aliased to TypedAdjacencies internally).
+        '''Note: the constructor accepts either a Networkx Graph or a Dict[NodeType, Dict[Node, List[Node]]] (aliased to TypedAdjacencies internally).
         Calling the constructor with the latter is equivalent to Graph(Graph.read_typed_adjacency_list(TypedAdjacencies_OBJECT, type_attr), type_attr)'''
         self.type_attr = type_attr
         self.default_cols = None
@@ -46,7 +47,7 @@ class Graph:
         assert set(self.G.nodes) == typed_ns, f'Some nodes have no type: {set(self.G.nodes) - typed_ns}'
         return self
 
-    def _get_nodes_to_types(self) -> Dict[str, NodeType]: return nx.get_node_attributes(self.G, self.type_attr)
+    def _get_nodes_to_types(self) -> Dict[Node, NodeType]: return nx.get_node_attributes(self.G, self.type_attr)
 
     def _set_colours(self, custom_cols = None):
         xkcd_palette = ['xkcd:green', 'xkcd:blue', 'xkcd:purple', 'xkcd:red', 'xkcd:orange', 'xkcd:yellow', 'xkcd:lime', 'xkcd:teal', 'xkcd:azure']
@@ -73,7 +74,7 @@ class Graph:
 
     # Core functionality methods
 
-    def group_tags(self, tags: List[str]) -> Dict[NodeType, List[str]]: return group_by(lambda t: self.nodes_to_types[t], tags)
+    def group_nodes(self, nodes: List[Node]) -> Dict[NodeType, List[Node]]: return group_by(lambda n: self.nodes_to_types[n], nodes)
 
     def extend_with(self, extension_graph):
         '''Note: returns a new object; does not affect the original'''
@@ -90,7 +91,7 @@ class Graph:
             return cols, outs
         else: return cols, cols
 
-    def plot(self, nodes_with_outline: List[str] = None):
+    def plot(self, nodes_with_outline: List[Node] = None):
         node_cols, node_out_cols = self.get_node_colours(nodes_with_outline)
         nx.draw_kamada_kawai(self.G, arrows = True, with_labels = True, node_color = node_cols, edgecolors = node_out_cols, linewidths = 3)
         # The following is a networkx-matplotlib hack to print a colour legend: use empty scatter plots

@@ -7,7 +7,7 @@ from Graph_State_Machine.updaters import list_accumulator
 from Graph_State_Machine.types import *
 
 
-def identity(state: State) -> List[str]: return state
+def identity(state: State) -> List[Node]: return state
 
 
 class GSM:
@@ -37,20 +37,19 @@ class GSM:
         res.graph = res.graph.extend_with(extension_graph)
         return res
 
-    def _step_res(self, node_type: NodeType = None) -> List[Tuple[str, Any]]:
-        '''Note: this method just (checks and) returns the step result; it does not update the state'''
-        assert (ord_res := self.scanner(self.graph, self.state_to_list(self.state), node_type)), 'No suitable successor state exists'
-        return ord_res
+    def _scan(self, node_type: NodeType = None) -> List[Tuple[Node, Any]]:
+        '''Note: this method just returns the step result; it does not update the state'''
+        return self.scanner(self.graph, self.state_to_list(self.state), node_type)
 
-    # def _step_by_type_res(self, node_type: NodeType = None) -> Dict[str, List[Tuple[str, Any]]]:
-    #     '''Note: this method just (checks and) returns the step result; it does not update the state'''
+    # def _scan_by_type(self, node_type: NodeType = None) -> Dict[NodeType, List[Tuple[Node, Any]]]:
+    #     '''Note: this method just returns the step result; it does not update the state'''
     #     return {tp: self.scanner(self.graph, tp_ts, node_type) for tp, tp_ts in self.graph.group_tags(self.state_to_list(self.state))}
     #     # Perhaps not used since can make the steps be grouped or not intrinsically;
     #     # would require transposer and sorter of transposed result to become a simple step again
 
     def step(self, node_type: NodeType = None):
         '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result)'''
-        self.state, self.graph = self.updater(self.state, self.graph, self._step_res(node_type))
+        self.state, self.graph = self.updater(self.state, self.graph, self._scan(node_type))
         return self
 
     # def step_by_type(self):
@@ -65,7 +64,7 @@ class GSM:
 
     def parallel_steps(self, node_types: List[NodeType]):
         '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known'''
-        scan_results = [self._step_res(nt) for nt in node_types]
+        scan_results = [self._scan(nt) for nt in node_types]
         for sr in scan_results: self.state, self.graph = self.updater(self.state, self.graph, sr)
         return self
 

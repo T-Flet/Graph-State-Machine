@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 
 from Graph_State_Machine.gsm import Graph, GSM
 from Graph_State_Machine.Util.misc import adjacencies_lossy_reverse, strs_as_keys
@@ -33,8 +32,7 @@ gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # De
 gsm.plot()
 
 gsm.consecutive_steps(['Distribution', 'Family Implementation']) # Perform 2 steps
-print(gsm._step_res('Method Function')) # Peek at intermediate value of new a step
-gsm.step('Method Function') # Perform the step
+print(gsm._scan('Method Function')) # Peek at intermediate value of new a step
+gsm.step('Method Functions') # Perform the step
 
 print(gsm)
-plt.show()

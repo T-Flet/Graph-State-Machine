@@ -22,7 +22,7 @@ setup(
     author = 'Thomas Fletcher',
     author_email = 'T-Fletcher@outlook.com',
 
-    description = "A simple framework for building generalised FSMs where states are combinations of a graph's (typed) nodes; an example use would be as intuitive backend logic by pathing through an ontology",
+    description = "A simple framework for building easily interpretable computational constructs between a graph automaton and a Turing machine where states are combinations of a graph's (typed) nodes; an example use would be as transparent backend logic by pathing through an ontology",
     long_description = read('README.rst'),
 
     packages = find_packages(exclude = ('tests',)),
@@ -30,7 +30,7 @@ setup(
     install_requires = [],
 
     classifiers = [
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3.8',
