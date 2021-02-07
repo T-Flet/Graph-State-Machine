@@ -1,6 +1,5 @@
 
-from Graph_State_Machine.gsm import Graph, GSM
-from Graph_State_Machine.Util.misc import adjacencies_lossy_reverse, strs_as_keys
+from Graph_State_Machine import *
 
 _shorthand_graph = {
     'Distribution': {

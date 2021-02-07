@@ -1,4 +1,5 @@
 from warnings import warn
+from copy import deepcopy
 
 from Graph_State_Machine.types import *
 
