@@ -1,5 +1,5 @@
 
-from Graph_State_Machine.graph import *
+from Graph_State_Machine.graph import Graph, Node, NodeType, TypedAdjacencies
 
 from typing import *
 
@@ -13,5 +13,8 @@ Scanner = Callable[[Graph, List[Node], Optional[NodeType]], List[Tuple[Node, Any
 
 Updater = Callable[[State, Graph, ScanResult], Tuple[State, Graph]]
     # Functions which update a GSM's state (and possibly graph) by processing the output of a step/scan method
+
+Selector = Callable[[State], List[Node]]
+    # Functions to extract from a State the list of nodes to perform a scan around
 
 

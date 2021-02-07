@@ -23,6 +23,7 @@ A simple framework for building easily interpretable computational constructs be
 
 Installation
 ------------
+
 ::
 
     pip install Graph_State_Machine
@@ -45,10 +46,13 @@ Besides pure academic exploration of the construct, some possible uses of it are
 - pathing through ontologies by entity nearness, e.g. building a sentence out of a word ontology
 
 
+
 Design
 ------
 
-The main class exported by this package is :code:`GSM`, which contains the following 4 fields:
+(Inspecting the package __init__.py imports is a quick and useful exercise in understanding the overall structure, while the following is a less concise version of the content of types.py)
+
+The main class exported by this package is :code:`GSM`, whose constructor accepts the following arguments:
 
 - A :code:`Graph`: a graph object with typed nodes built around a Networkx Graph, with utility methods so that it can
 
@@ -59,19 +63,24 @@ The main class exported by this package is :code:`GSM`, which contains the follo
 - A :code:`State`: the initial state; the default type is a simple list of nodes (strings), but it can be anything as long as:
 
     - the used :code:`Scanner` function is designed to handle it
-    - a function to extract a list of strings from it is provided as the :code:`state_to_list` argument
+    - a function to extract a list of strings from it is provided as the :code:`selector` argument
 - A :code:`Scanner` (:code:`Graph -> List[Node] -> Optional[NodeType] -> List[Tuple[Node, Any]]`): a function taking in a list of state nodes to use to determine next-step candidates, optionally focussing only on a specific node type
 - An :code:`Updater` (:code:`State -> Graph -> ScanResult -> Tuple[State, Graph]`): a function taking in the current state and graph along with the result of a node scan and returns the updated state and graph (the graph is likely not going to be modified in most cases, but the facility is there for Turing completeness)
-- As mentioned above, a :code:`state_to_list` function to extract a list of strings from the state (in case it is not one already) to give the :code:`Scanner`
+- A :code:`Selector` (:code:`State -> List[Node]`): a function to extract from the state the list of nodes which should be fed to the :code:`Scanner`
 
 Note: given that the :code:`Graph` wraps a Networkx Graph, arbitrary node and edge attributes can be used to enhance the processing functions.
 
-An intuitive example of :code:`State` which is not a simple list of nodes is a dictionary of lists of nodes only some subsets of which are considered for graph exploration and others for state updating, e.g. keeping track of what nodes were initial state and which ones were added by steps.
+A simple example of node-list state with non-identity :code:`Selector` is a :code:`GSM` which only takes the last "visited" node into account (just set the selector to :code:`last_only`).
+
+Going one step further, an intuitive example of :code:`State` which is not a simple list of nodes is a dictionary of lists of nodes only some subsets of which are considered for graph exploration (and others for state updating), e.g. keeping track of which nodes were initial state and which ones were added by steps.
 Simple default constructor functions for this :code:`State` type are provided:
-:code:`dict_fields_getter` (for :code:`state_to_list`), which takes in the list of fields to concatenate, and :code:`list_in_dict_accumulator` (for :code:`Updater`), which takes in the single field to update.
+:code:`dict_fields_getter` (for :code:`selector`), which takes in the list of fields to concatenate, and :code:`list_in_dict_accumulator` (for :code:`Updater`), which takes in the single field to update.
+
+
 
 Simple Example
 --------------
+
 A GSM which determines the appropriate R linear regression function and distribution family from labelled data features:
 
 - Define a numerical data-type ontology graph in the typed edge-list shorthand which :code:`Graph` accepts along with ready-made Networkx graphs, making use of two simple notation helper functions
@@ -128,3 +137,5 @@ In particular, the 'Method Function' scan result is performed separately while p
 This is a trivial example (in that the simple addition could have been there from the beginning) of where a broader graph could be attached by :code:`gsm.extend_with(...)` and new state introduced in order to resolve the tie.
 
 Note that ties need not really be resolved as long as the :code:`Updater` function's behaviour is what the user expects since it is not limited in functionality; it could select a random option, all, some or none of them, or it could adjust the graph itself or terminate execution.
+
+

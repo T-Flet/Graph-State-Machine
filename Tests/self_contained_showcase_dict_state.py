@@ -1,6 +1,7 @@
 
-from Graph_State_Machine.gsm import Graph, GSM, dict_fields_getter
+from Graph_State_Machine.gsm import *
 from Graph_State_Machine.Util.misc import adjacencies_lossy_reverse, strs_as_keys
+import Graph_State_Machine.selectors as se
 import Graph_State_Machine.scanners as ss
 import Graph_State_Machine.scores as sc
 import Graph_State_Machine.updaters as sh
@@ -30,7 +31,7 @@ _shorthand_graph = {
     )
 }
 
-gsm = GSM(Graph(_shorthand_graph), {'Starting': ['Non-Negative', 'Non-Zero', 'Integer'], 'Added': [], 'From Steps': []}, ss.by_score(sc.presence_score), sh.list_in_dict_accumulator('From Steps'), dict_fields_getter())
+gsm = GSM(Graph(_shorthand_graph), {'Starting': ['Non-Negative', 'Non-Zero', 'Integer'], 'Added': [], 'From Steps': []}, ss.by_score(sc.presence_score), sh.list_in_dict_accumulator('From Steps'), se.dict_fields_getter())
 
 # gsm.plot()
 
