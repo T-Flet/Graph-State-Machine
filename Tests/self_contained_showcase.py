@@ -13,17 +13,14 @@ _shorthand_graph = {
     },
     'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
     'Method Function': strs_as_keys(['glm', 'betareg', 'polr', 'stan_glm', 'stan_betareg', 'stan_polr']),
-    'Data Feature': dict(
-        {'Constant': []},
-        **adjacencies_lossy_reverse({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
-            'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
-            'Poisson': ['Non-Negative', 'Integer', 'Non-Zero'],
-            'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
-            'Normal': ['Integer', 'Real'],
-            'Beta': ['Real', '[0,1]'],
-            'Gamma D': ['Non-Negative', 'Real', 'Non-Zero']
-        })
-    )
+    'Data Feature': adjacencies_lossy_reverse({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
+        'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
+        'Poisson': ['Non-Negative', 'Integer', 'Non-Zero'],
+        'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
+        'Normal': ['Integer', 'Real'],
+        'Beta': ['Real', '[0,1]'],
+        'Gamma D': ['Non-Negative', 'Real', 'Non-Zero']
+    })
 }
 
 gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Default function-arguments
@@ -31,6 +28,7 @@ gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # De
 # gsm.plot()
 
 gsm.consecutive_steps(['Distribution', 'Family Implementation']) # Perform 2 steps
+# gsm.parallel_steps(['Distribution', 'Family Implementation']) # Warn of failure for 'Family Implementation' if parallel
 print(gsm._scan('Method Function')) # Peek at intermediate value of new a step
 gsm.step('Method Function') # Perform the step
 gsm.step('NON EXISTING TYPE') # Trigger a warning and no State changes

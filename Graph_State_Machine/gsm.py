@@ -1,4 +1,5 @@
 from copy import deepcopy
+import warnings
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -6,6 +7,7 @@ from Graph_State_Machine.selectors import identity
 from Graph_State_Machine.scanners import by_score
 from Graph_State_Machine.updaters import list_accumulator
 from Graph_State_Machine.types import *
+from Graph_State_Machine.Util.misc import expand_user_warning
 
 
 class GSM:
@@ -47,7 +49,8 @@ class GSM:
 
     def step(self, node_type: NodeType = None):
         '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result)'''
-        self.state, self.graph = self.updater(self.state, self.graph, self._scan(node_type))
+        def f(): self.state, self.graph = self.updater(self.state, self.graph, self._scan(node_type))
+        expand_user_warning(f, f'; node type: {node_type}')
         return self
 
     # def step_by_type(self):
@@ -63,13 +66,15 @@ class GSM:
     def parallel_steps(self, node_types: List[NodeType]):
         '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known'''
         scan_results = [self._scan(nt) for nt in node_types]
-        for sr in scan_results: self.state, self.graph = self.updater(self.state, self.graph, sr)
+        for sr, nt in zip(scan_results, node_types):
+            def f(): self.state, self.graph = self.updater(self.state, self.graph, sr)
+            expand_user_warning(f, f'; node type: {nt}')
         return self
 
 
     # Plotting methods
 
-    def plot(self, override_highlight = None):
-        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state))
+    def plot(self, override_highlight = None, layout = nx.kamada_kawai_layout, **layout_kwargs):
+        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), layout, **layout_kwargs)
 
 

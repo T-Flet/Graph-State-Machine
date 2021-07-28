@@ -87,13 +87,13 @@ class Graph:
     def get_node_colours(self, nodes_with_outline = None) -> Tuple[List[str], List[str]]:
         cols = [self.colour_map[u[1]] for u in self.G.nodes(data=self.type_attr)]
         if nodes_with_outline:
-            outs = ['#000000' if u[0] in nodes_with_outline else c for u, c in zip(self.G.nodes(data = self.type_attr), cols)]
+            outs = ['#606060' if u[0] in nodes_with_outline else c for u, c in zip(self.G.nodes(data = self.type_attr), cols)]
             return cols, outs
         else: return cols, cols
 
-    def plot(self, nodes_with_outline: List[Node] = None):
+    def plot(self, nodes_with_outline: List[Node] = None, layout = nx.kamada_kawai_layout, **layout_kwargs):
         node_cols, node_out_cols = self.get_node_colours(nodes_with_outline)
-        nx.draw_kamada_kawai(self.G, arrows = True, with_labels = True, node_color = node_cols, edgecolors = node_out_cols, linewidths = 3)
+        nx.draw(self.G, layout(self.G, **layout_kwargs), arrows = True, with_labels = True, node_color = node_cols, edgecolors = node_out_cols, linewidths = 3)
         # The following is a networkx-matplotlib hack to print a colour legend: use empty scatter plots
         for t, c in self.colour_map.items(): plt.scatter([], [], c = [c], label = t)
         plt.legend()

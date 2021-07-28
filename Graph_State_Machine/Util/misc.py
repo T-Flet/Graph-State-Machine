@@ -1,3 +1,4 @@
+import warnings
 from collections import defaultdict
 
 from Graph_State_Machine.types import *
@@ -19,3 +20,13 @@ def strs_as_keys(strs: List[str], unique_value: List[str] = []) -> Dict[str, Lis
     return {t: unique_value for t in strs}
 
 
+def expand_user_warning(f: Callable, suffix = ' <<-- nested warning'):
+    with warnings.catch_warnings():  # Reset warning filter afterwards
+        warnings.filterwarnings('error')
+        res = None
+        try: res = f()
+        except Warning as w: # Append suffix if UserWarning
+            warnings.filterwarnings('default')
+            warnings.warn(w.args[0] + (suffix if issubclass(w.__class__, UserWarning) else ''))
+        except Exception as e: raise e # Raise other errors
+        finally: return res
