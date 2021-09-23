@@ -19,7 +19,7 @@ def read_requirements():
 
 setup(
     name = 'Graph-State-Machine',
-    version = '1.0', # Update in package __init__ too
+    version = '2.0', # Update in package __init__ too
     url = 'https://github.com/T-Flet/Graph-State-Machine',
     license = 'BSD 3-Clause',
 

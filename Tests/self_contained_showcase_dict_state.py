@@ -27,10 +27,18 @@ gsm = GSM(Graph(_shorthand_graph), {'Starting': ['Non-Negative', 'Non-Zero', 'In
 
 # gsm.plot()
 
-gsm.consecutive_steps(['Distribution', 'Family Implementation']) # Perform 2 steps
-# gsm.parallel_steps(['Distribution', 'Family Implementation']) # Warn of failure for 'Family Implementation' if parallel
-print(gsm._scan('Method Function')) # Peek at intermediate value of new a step
-gsm.step('Method Function') # Perform the step
-gsm.step('NON EXISTING TYPE') # Trigger a warning and no State changes
+gsm.consecutive_steps(dict(node_types = ['Distribution']), dict(node_types = ['Family Implementation']))
+    # Perform 2 steps, giving one optional argument (incidentally, the first one) for each step,
+    # i.e. the (singleton) list of types to focus on
+
+# gsm.consecutive_steps([['Distribution']], [['Family Implementation']]) # Unnamed-arguments version of the above
+# gsm.parallel_steps([['Distribution']], [['Family Implementation']]) # Parallel version, warning of failure for 'Family Implementation'
+print(gsm.log[-1], '\n') # Can check the log for details of the last step
+
+print(gsm._scan(['Method Function']), '\n') # Can also peek ahead at the intermediate value of a possible next step
+gsm.step(['Method Function']) # Perform the step
+
+gsm.step(['NON EXISTING TYPE']) # Trigger a warning and no State changes
+print(gsm.log[-1], '\n') # The failed step is also logged
 
 print(gsm)
