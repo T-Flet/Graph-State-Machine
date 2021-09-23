@@ -49,14 +49,10 @@ Given a graph with typed nodes and a state object from which a list of nodes can
 (by an optional :code:`Selector` function), the construct applies two arbitrary functions to perform a step:
 
 :code:`Scanner`
-  A generalised neighbourhood function, which scans the graph "around" the state nodes,
-  optionally by type, and returns a scored list of nodes for further processing
+  A generalised neighbourhood function, which scans the graph "around" the state nodes and returns a scored
+  list of nodes for further processing; additional and optional arguments can be included, e.g. to filter by type
 :code:`Step`
   A function to process the scan result and thus update the state and possibly the graph itself
-
-(Note: the node ordering produced by a Scanner is unlikely to produce ties given the intentional
-parsimony of options for each decision stage, but should one occur, as an artefact of the generalised
-node neighbourhood process, the closest option to the earliest added state node will be selected first)
 
 This computational construct is different from a finite state machine on a graph and from a
 graph cellular automaton, but it shares some similarities with both in that it generalises some of
@@ -93,9 +89,11 @@ Formalising the above description using library terminology, the constructor of 
   The initial state; the default type is a simple list of nodes (strings), but it can be anything as
   long as the used :code:`Scanner` function is designed to handle it and a function to extract a list of
   strings from it is provided as the Selector argument
-:code:`Scanner` (:code:`Graph -> List[Node] -> Optional[NodeType] -> List[Tuple[Node, Any]]`)
-  A function taking in a list of state nodes to use to determine next-step candidates, optionally focussing only
-  on a specific node type
+:code:`Scanner` (:code:`Graph -> List[Node] -> ... -> List[Tuple[Node, Any]]`)
+  A function taking in a list of state nodes to use to determine next-step candidates;
+  arbitrary additional arguments, optional or required, may be present after Graph and List[Node],
+  for example focussing the scan on specific node types;
+  these extra arguments can be passed through the step methods either named (dictionary) or unnamed (list)
 :code:`Updater` (:code:`State -> Graph -> ScanResult -> Tuple[State, Graph]`)
   A function taking in the current
   state and graph along with the result of a node scan and returns the updated state and graph
@@ -159,11 +157,19 @@ A GSM which determines the appropriate R linear regression function and distribu
 
     gsm.plot()
 
-    gsm.consecutive_steps(['Distribution', 'Family Implementation']) # Perform 2 steps
-    # gsm.parallel_steps(['Distribution', 'Family Implementation']) # Warn of failure for 'Family Implementation' if parallel
-    print(gsm._scan('Method Function')) # Peek at intermediate value of new a step
-    gsm.step('Method Function') # Perform the step
-    gsm.step('NON EXISTING TYPE') # Trigger a warning and no State changes
+    gsm.consecutive_steps(dict(node_types = ['Distribution']), dict(node_types = ['Family Implementation']))
+        # Perform 2 steps, giving one optional argument (incidentally, the first one) for each step,
+        # i.e. the (singleton) list of types to focus on
+
+    # gsm.consecutive_steps([['Distribution']], [['Family Implementation']]) # Unnamed-arguments version of the above
+    # gsm.parallel_steps([['Distribution']], [['Family Implementation']]) # Parallel version, warning of failure for 'Family Implementation'
+    print(gsm.log[-1], '\n') # Can check the log for details of the last step
+
+    print(gsm._scan(['Method Function']), '\n') # Can also peek ahead at the intermediate value of a possible next step
+    gsm.step(['Method Function']) # Perform the step
+
+    gsm.step(['NON EXISTING TYPE']) # Trigger a warning and no State changes
+    print(gsm.log[-1], '\n') # The failed step is also logged
 
     print(gsm)
 

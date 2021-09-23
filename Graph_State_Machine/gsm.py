@@ -2,6 +2,7 @@ from copy import deepcopy
 import warnings
 import networkx as nx
 import matplotlib.pyplot as plt
+from inspect import signature
 
 from Graph_State_Machine.selectors import identity
 from Graph_State_Machine.scanners import by_score
@@ -26,6 +27,9 @@ class GSM:
         self.selector = selector
         self.updater = state_updater
 
+        self.log = [dict(method = '__init__', graph = graph, state = state, node_scanner = node_scanner,
+                         state_updater = state_updater, list_accumulator = list_accumulator, selector = selector)]
+
     def __str__(self): return self.state.__str__()
 
 
@@ -37,38 +41,33 @@ class GSM:
         res.graph = res.graph.extend_with(extension_graph)
         return res
 
-    def _scan(self, node_type: NodeType = None) -> List[Tuple[Node, Any]]:
+    def _scan(self, *args, **kwargs) -> List[Tuple[Node, Any]]:
         '''Note: this method just returns the step result; it does not update the state'''
-        return self.scanner(self.graph, self.selector(self.state), node_type)
+        return self.scanner(self.graph, self.selector(self.state), *args, **kwargs)
 
-    # def _scan_by_type(self, node_type: NodeType = None) -> Dict[NodeType, List[Tuple[Node, Any]]]:
-    #     '''Note: this method just returns the step result; it does not update the state'''
-    #     return {tp: self.scanner(self.graph, tp_ts, node_type) for tp, tp_ts in self.graph.group_tags(self.selector(self.state))}
-    #     # Perhaps not used since can make the steps be grouped or not intrinsically;
-    #     # would require transposer and sorter of transposed result to become a simple step again
-
-    def step(self, node_type: NodeType = None):
+    def step(self, *args, **kwargs):
         '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result)'''
-        def f(): self.state, self.graph = self.updater(self.state, self.graph, self._scan(node_type))
-        expand_user_warning(f, f'; node type: {node_type}')
+        if args and kwargs: raise TypeError('Step function arguments should be either all named or all unnamed')
+        def f():
+            scan_result = self._scan(*args, **kwargs)
+            self.log.append(dict(method = 'step', scan_result = scan_result, scanner_arguments = self._ensure_scanner_args_are_named(args, kwargs)))
+            self.state, self.graph = self.updater(self.state, self.graph, scan_result)
+        expand_user_warning(f, lambda: f'; last log entry: {self.log[-1]}')
         return self
 
-    # def step_by_type(self):
-    #     '''Scan nodes of interest and perform a step handling all different types of node separately (i.e. have the step_handler update the state by processing the scan result)'''
-    #     self.state, self.graph = self.updater(self.state, self.graph, self._step_by_type_res())
-    #     return self
-
-    def consecutive_steps(self, node_types: List[NodeType]):
+    def consecutive_steps(self, *scanners_arguments):
         '''Perform steps of the given node types one after the other, i.e. using the progressively updated state for each new step'''
-        for nt in node_types: self.step(nt)
+        for ss in scanners_arguments: self.step(**self._ensure_scanner_args_are_named(ss))
         return self
 
-    def parallel_steps(self, node_types: List[NodeType]):
+    def parallel_steps(self, *scanners_arguments: List[Union[List, Dict]]):
         '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known'''
-        scan_results = [self._scan(nt) for nt in node_types]
-        for sr, nt in zip(scan_results, node_types):
-            def f(): self.state, self.graph = self.updater(self.state, self.graph, sr)
-            expand_user_warning(f, f'; node type: {nt}')
+        scanners_arguments = [self._ensure_scanner_args_are_named(ss) for ss in scanners_arguments]
+        scan_results = [self._scan(**ss) for ss in scanners_arguments]
+        for rs, ss in zip(scan_results, scanners_arguments):
+            def f(): self.state, self.graph = self.updater(self.state, self.graph, rs)
+            expand_user_warning(f, lambda: f'; (parallel) step arguments: {ss}')
+        self.log.append(dict(method = 'parallel_steps', scan_results = scan_results, scanners_arguments = scanners_arguments))
         return self
 
 
@@ -76,5 +75,13 @@ class GSM:
 
     def plot(self, override_highlight = None, layout = nx.kamada_kawai_layout, **layout_kwargs):
         return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), layout, **layout_kwargs)
+
+
+    # Utility methods
+
+    def _ensure_scanner_args_are_named(self, ss: Union[List, Dict], otherwise_dict = None) -> Dict[str, Any]:
+        '''If ss is not a dictionary of args, then line it up with the expected names and make it one; fallback to otherwise_dict if present'''
+        return dict(zip(list(signature(self.scanner).parameters.keys())[2:], ss)) if ss and (isinstance(ss, list) or isinstance(ss, tuple)) else \
+                otherwise_dict if otherwise_dict else ss
 
 
