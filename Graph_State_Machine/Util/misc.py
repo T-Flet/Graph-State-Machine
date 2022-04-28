@@ -1,13 +1,9 @@
 import warnings
+import networkx as nx
+import numpy as np
 from collections import defaultdict
+from typing import *
 
-from Graph_State_Machine.types import *
-
-
-def relevant_neighbours(Gr, state_list: List[str], node_types: List[NodeType] = [], not_node_types: List[NodeType] = []) -> List[List[str]]:
-    '''Return neighbours of state nodes of the specified types or all types if none specified'''
-    return [[n for n in Gr.G.neighbors(sn) if (t := Gr.G.nodes[n][Gr.type_attr])
-             if not node_types or t in node_types if not not_node_types or t not in not_node_types] for sn in state_list]
 
 def adjacencies_lossy_reverse(one_type_graph: Dict[str, List[str]]) -> Dict[str, List[str]]:
     '''Invert a dictionary of adjacencies, with possible losses e.g. {A: [B, C], D: []} -> {B: [A], C: [A]}'''
@@ -32,3 +28,8 @@ def expand_user_warning(f: Callable, suffix_f = lambda: ' <<-- nested warning'):
             return res
         except Exception as e: raise e # Raise other errors
         return res
+
+
+def radial_degrees(x, y): return np.arctan2(y, x) * 180 / np.pi
+
+

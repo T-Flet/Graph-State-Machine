@@ -73,8 +73,10 @@ class GSM:
 
     # Plotting methods
 
-    def plot(self, override_highlight = None, layout = nx.kamada_kawai_layout, **layout_kwargs):
-        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), layout, **layout_kwargs)
+    def plot(self, override_highlight: List[Node] = None,
+             layout = nx.kamada_kawai_layout, layout_args: Dict[str, Any] = {},
+             plotly = True, radial_labels = False, networkx_plot_args: Dict[str, Any] = {}):
+        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), layout, layout_args, plotly, radial_labels, networkx_plot_args)
 
 
     # Utility methods

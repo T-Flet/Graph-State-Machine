@@ -112,10 +112,25 @@ def diff(xs: Iterable[_a], ys: Iterable[_a]) -> List[_a]:
         for y in ys: cxs.remove(y)
     except ValueError: pass
     return cxs
-def diff_h(xs: Iterable[_a], ys: Iterable[_a]) -> List[_a]: return list(set(xs) - set(ys))
+def diff_h(xs: Iterable[_a], ys: Iterable[_a]) -> Set[_a]: return set(xs) - set(ys)
 
 
 def chunk(xs: Iterable[_a], n: int) -> Generator[_a, None, None]: return (xs[i:i + n] for i in range(0, len(xs), n))
+
+
+def intersperse(xs: Iterable[_a], ys: Iterable[_a], n: int, prepend = False, append = False) -> Iterable[_a]:
+    '''Intersperse elements of ys every n elements of xs'''
+    n += 1 # Moving this after the assert would save the two (n - 1)s, but this way all n expressions are coherent
+    unwanted_append = not len(xs) % (n - 1) and not append
+    assert len(ys) >= (m := prepend + len(xs) // (n - 1) - unwanted_append), f'ys has too few elements ({len(ys)}); at least {m} are needed to cover xs with the given parameters'
+    if not prepend: ys = [None] + ys # The +-1s below are respectively for: indices starting at 0, the prepended y, context
+    return [xs[i - 1 - i // n] if i % n else ys[i // n] for i in range(1 + len(xs) + len(xs) // (n - 1) - unwanted_append)][not prepend:]
+
+def intersperse_val(xs: Iterable[_a], y: _a, n: int, prepend = False, append = False) -> Iterable[_a]:
+    '''Intersperse y every n elements of xs'''
+    n += 1 # The +-1s below are respectively for: indices starting at 0, the prepended y, context
+    res = [xs[i - 1 - i // n] if i % n else y for i in range(1 + len(xs) + len(xs) // (n - 1))]
+    return res[not prepend : len(res) - (not len(xs) % (n - 1) and not append)]
 
 
 

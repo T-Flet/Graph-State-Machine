@@ -1,6 +1,6 @@
 """Graph-State-Machine - A simple library to build easily interpretable computational constructs similar to a Turing machine over a graph, where states are combinations of a graph's (typed) nodes; an example use would be a transparent backend logic which navigates an ontology"""
 
-__version__ = '2.0.1' # Change it in setup.py too
+__version__ = '2.1' # Change it in setup.py too
 __author__ = 'Thomas Fletcher <T-Fletcher@outlook.com>'
 # __all__ = ['Graph', 'GSM']
 

@@ -121,11 +121,13 @@ A GSM which determines the appropriate R linear regression function and distribu
 
 - Define a numerical data-type ontology graph in the typed edge-list shorthand which :code:`Graph` accepts along with ready-made Networkx graphs, making use of two simple notation helper functions
 - Create a default-settings :code:`GSM` with it and a simple starting state
-- Ask it to perform steps focussing on the node types of 'Distribution', 'Method Function' and 'Family Implementation', which in this context just means finding the most appropriate of each
+- Ask it to perform steps focussing on the node types of 'Distribution', 'Methodology Function' and 'Family Implementation', which in this context just means finding the most appropriate of each
 
-.. figure:: showcase_graph.png
+.. figure:: graph.png
     :align: center
     :figclass: align-center
+
+    Default plot: gsm.plot()
 
 .. code-block:: Python
 
@@ -135,27 +137,31 @@ A GSM which determines the appropriate R linear regression function and distribu
         'Distribution': {
             'Normal': ['stan_glm', 'glm', 'gaussian'],
             'Binomial': ['stan_glm', 'glm', 'binomial'],
-            'Multinomial': ['stan_polr', 'polr'],
+            'Multinomial': ['stan_polr', 'polr_tolerant', 'multinom'],
             'Poisson': ['stan_glm', 'glm', 'poisson'],
             'Beta': ['stan_betareg', 'betareg'],
-            'Gamma D': ['stan_glm', 'glm', 'Gamma'],
+            'gamma': ['stan_glm', 'glm', 'Gamma'],
             'Inverse Gaussian': ['stan_glm', 'glm', 'inverse.gaussian']
         },
         'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
-        'Method Function': strs_as_keys(['glm', 'betareg', 'polr', 'stan_glm', 'stan_betareg', 'stan_polr']),
+        'Methodology Function': strs_as_keys(['glm', 'betareg', 'polr_tolerant', 'multinom', 'stan_glm', 'stan_betareg', 'stan_polr']),
         'Data Feature': adjacencies_lossy_reverse({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
             'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
-            'Poisson': ['Non-Negative', 'Integer', 'Non-Zero'],
+            'Poisson': ['Non-Negative', 'Integer', 'Consecutive', 'Counts-Like'],
             'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
-            'Normal': ['Integer', 'Real'],
+            'Normal': ['Integer', 'Real', '+ and -'],
             'Beta': ['Real', '[0,1]'],
-            'Gamma D': ['Non-Negative', 'Real', 'Non-Zero']
+            'gamma': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
+            'Inverse Gaussian': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
+            'polr_tolerant': ['Consecutive']
         })
     }
 
     gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Default function-arguments
 
     gsm.plot()
+    # gsm.plot(layout = nx.shell_layout, radial_labels = True)
+    # gsm.plot(plotly = False)
 
     gsm.consecutive_steps(dict(node_types = ['Distribution']), dict(node_types = ['Family Implementation']))
         # Perform 2 steps, giving one optional argument (incidentally, the first one) for each step,
@@ -163,10 +169,11 @@ A GSM which determines the appropriate R linear regression function and distribu
 
     # gsm.consecutive_steps([['Distribution']], [['Family Implementation']]) # Unnamed-arguments version of the above
     # gsm.parallel_steps([['Distribution']], [['Family Implementation']]) # Parallel version, warning of failure for 'Family Implementation'
-    print(gsm.log[-1], '\n') # Can check the log for details of the last step
+    print(gsm.log[-2], '\n') # Can check the log for details of the second-last step, where a tie occurs.
+                             # Ties are rare, and the default Updater only picks one result, but arbitrary action may be taken
 
-    print(gsm._scan(['Method Function']), '\n') # Can also peek ahead at the intermediate value of a possible next step
-    gsm.step(['Method Function']) # Perform the step
+    print(gsm._scan(['Methodology Function']), '\n') # Can also peek ahead at the intermediate value of a possible next step
+    gsm.step(['Methodology Function']) # Perform the step
 
     gsm.step(['NON EXISTING TYPE']) # Trigger a warning and no State changes
     print(gsm.log[-1], '\n') # The failed step is also logged
@@ -174,9 +181,36 @@ A GSM which determines the appropriate R linear regression function and distribu
     print(gsm)
 
 
-The 'Method Function' scan above is peeked at before its step to show that there is a tie between a Frequentist and a Bayesian method.
+The 'Methodology Function' scan above is peeked at before its step to show that there is a tie between a Frequentist and a Bayesian method.
 This is a trivial example (in that the simple addition could have been there from the beginning) of where a broader graph could be attached by :code:`gsm.extend_with(...)` and new state introduced in order to resolve the tie.
 
 Note that ties need not really be resolved as long as the :code:`Updater` function's behaviour is what the user expects since it is not limited in functionality; it could select a random option, all, some or none of them, it could adjust the graph itself or terminate execution.
+
+
+Plotting
+--------
+
+The default plot layout and backend are Kamada-Kawai and Plotly (as in the image above),
+but arbitrary layouts can be provided, and the NetworkX-generated pyplot plotting is also available.
+Here are some alternative plotting possibilities:
+
+.. figure:: shell_radial_graph.png
+    :align: center
+    :figclass: align-center
+
+    Shell plot with radial labels: gsm.plot(layout = nx.shell_layout, radial_labels = True)
+
+.. figure:: shell_graph.png
+    :align: center
+    :figclass: align-center
+
+    Shell plot with default labels: gsm.plot(layout = nx.shell_layout)
+
+
+.. figure:: no_plotly_graph.png
+    :align: center
+    :figclass: align-center
+
+    NetworkX-generated pyplot plot: gsm.plot(plotly = False)
 
 
