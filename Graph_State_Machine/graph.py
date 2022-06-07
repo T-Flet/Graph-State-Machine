@@ -4,18 +4,20 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from copy import deepcopy
+from warnings import warn
 
 from Graph_State_Machine.Util.generic_util import diff, group_by, flatten, intersperse_val
-from Graph_State_Machine.Util.misc import radial_degrees
+from Graph_State_Machine.Util.misc import check_edge_dict_keys, radial_degrees
 
 from typing import *
 Node = str
 NodeType = str
-TypedAdjacencies = Dict[NodeType, Dict[Node, List[Node]]]
+TypedAdjacencies = Dict[NodeType, Dict[Node, Union[List[Node], Dict[str, List[Node]]]]]
+
 
 
 class Graph:
-    def __init__(self, G: Union[nx.Graph, TypedAdjacencies], type_attr: NodeType = 'node_type'):
+    def __init__(self, G: Union[nx.Graph, TypedAdjacencies], type_attr: NodeType = 'node_type', warn_about_problematic_sufficiencies = True):
         '''Note: the constructor accepts either a Networkx Graph or a Dict[NodeType, Dict[Node, List[Node]]] (aliased to TypedAdjacencies internally).
         Calling the constructor with the latter is equivalent to Graph(Graph.read_typed_adjacency_list(TypedAdjacencies_OBJECT, type_attr), type_attr)'''
         self.type_attr = type_attr
@@ -23,14 +25,14 @@ class Graph:
         self.colour_map = None
 
         if not isinstance(G, nx.Graph): G = Graph.read_typed_adjacency_list(G, self.type_attr)
-        self._set_graph(G)
+        self._set_graph(G, warn_about_problematic_sufficiencies)
 
 
     # Init-related methods
 
-    def _set_graph(self, G: nx.Graph):
+    def _set_graph(self, G: nx.Graph, warn_about_problematic_sufficiencies = True):
         self.G = G
-        self.consistent()
+        self.consistent(warn_about_problematic_sufficiencies)
 
         self.nodes_to_types = self._get_nodes_to_types()
         self.types = sorted(list(set(nx.get_node_attributes(self.G, self.type_attr).values())))
@@ -41,13 +43,37 @@ class Graph:
     @staticmethod
     def read_typed_adjacency_list(tas: TypedAdjacencies, type_attr: NodeType = 'node_type') -> nx.Graph:
         G = nx.Graph()
-        for nt, one_to_many in tas.items(): G.add_nodes_from(one_to_many.keys(), **{type_attr: nt})
-        for nt, one_to_many in tas.items(): G.add_edges_from([(start, end) for start, many in one_to_many.items() for end in many])
+        for nt, one_to_many in tas.items(): G.add_nodes_from(one_to_many.keys(), **{type_attr: nt}) # Separate loop because nodes need to exist before edges
+        for nt, one_to_many in tas.items(): # G.add_edges_from([(start, end) for start, many in one_to_many.items() for end in many])
+            for start, many in one_to_many.items():
+                # This is fine without edge existence checks because re-adding an edge with or without attributes only updates it constructively
+                if isinstance(many, list): G.add_edges_from([(start, end) for end in many])
+                else: # isinstance(one_to_many, dict)
+                    check_edge_dict_keys(many)
+                    G.add_edges_from([(start, end) for end in flatten(many.values())])
+                    # No need to do anything with the 'plain' list below since its edges are already added above
+                    Graph._parse_edge_attributes(G, start, many, 'are_necessary', 'necessary_for', False)
+                    Graph._parse_edge_attributes(G, start, many, 'are_sufficient', 'sufficient_for', False)
+                    Graph._parse_edge_attributes(G, start, many, 'necessary_for', 'necessary_for', True)
+                    Graph._parse_edge_attributes(G, start, many, 'sufficient_for', 'sufficient_for', True)
         return G
 
-    def consistent(self):
+    @staticmethod
+    def _parse_edge_attributes(G: nx.Graph, start: Node, many_dict: Dict[str, List[Node]], list_name: str, attribute_name: str, set_to_end = False) -> None:
+        '''Takes in a graph, a start node, a dictionary of lists of end nodes, the key of one of the lists, the name of an edge attribute
+            and whether said attribute should be set to the start or end node. Returns nothing; modifies input G'''
+        if list_name in many_dict:
+            for end in many_dict[list_name]:
+                set_to = end if set_to_end else start
+                if (nfor := G[start][end].get(attribute_name)):
+                    if set_to == nfor: warn(f"Redundancy in typed adjacency list: the '{attribute_name}' attribute of edge '{start}'-'{end}' was already set")
+                    else: raise ValueError(  f"Conflict in typed adjacency list: the '{attribute_name}' attribute of edge '{start}'-'{end}' was already set")
+                G.add_edge(start, end, **{attribute_name: set_to}) # Reached if no error was raised
+
+    def consistent(self, warn_about_problematic_sufficiencies = True):
         typed_ns = set(nx.get_node_attributes(self.G, self.type_attr).keys())
         assert set(self.G.nodes) == typed_ns, f'Some nodes have no type: {set(self.G.nodes) - typed_ns}'
+        if warn_about_problematic_sufficiencies: self._check_problematic_sufficiencies()
         return self
 
     def _get_nodes_to_types(self) -> Dict[Node, NodeType]: return nx.get_node_attributes(self.G, self.type_attr)
@@ -77,8 +103,8 @@ class Graph:
 
     # Core functionality methods
 
-    def group_nodes(self, nodes: List[Node]) -> Dict[NodeType, List[Node]]:
-        unsorted = group_by(lambda n: self.nodes_to_types[n], nodes)
+    def group_nodes(self, nodes: List[Node] = None) -> Dict[NodeType, List[Node]]:
+        unsorted = group_by(lambda n: self.nodes_to_types[n], nodes if nodes else self.G.nodes())
         return {nt: unsorted[nt] for nt in sorted(unsorted)}
 
     def extend_with(self, extension_graph):
@@ -89,22 +115,50 @@ class Graph:
 
     # Utility methods
 
-    def nodes_of_types(self, nodes: List[Node] = None, node_types: List[NodeType] = None,
-                       not_node_types: List[NodeType] = None) -> Dict[NodeType, List[Node]]:
-        '''Returns the given nodes (or all the graph nodes) filtered and grouped by their type'''
-        good_types = set(node_types if node_types else self.types)
-        if not_node_types: good_types = good_types.difference(not_node_types)
-        # return {nt: [n for n in (nodes if nodes else Gr.G.nodes) if Gr.G.nodes[n][Gr.type_attr] == nt] for nt in good_types} # not using cached types
-        return {nt: ns for nt, ns in self.group_nodes(nodes if nodes else self.G.nodes).items() if nt in good_types}
-
-    # The core filtering in relevant_neighbours overlaps a bit with that in nodes_of_types, but it would not be
-    #   as efficient to use the latter in the former (cannot benefit from caching the node_types since state neighbours can have
-    #   different sets of types, then would need to get dictionary values and flatten them, etc)
-    def relevant_neighbours(self, nodes: List[Node], node_types: List[NodeType] = None,
-                            not_node_types: List[NodeType] = None) -> List[List[Node]]:
+    def relevant_neighbours(self, nodes: List[Node], good_types: List[NodeType] = None, bad_types: List[NodeType] = None) -> List[List[Node]]:
         '''Return neighbours of state nodes of the specified types or all types if none specified'''
-        return [[n for n in self.G.neighbors(sn) if (t := self.G.nodes[n][self.type_attr])
-                 if not node_types or t in node_types if not not_node_types or t not in not_node_types] for sn in nodes]
+        return [self.type_filter(self.G.neighbors(sn), good_types, bad_types) for sn in nodes]
+
+    def type_filter(self, nodes: List[Node] = None, good_types: List[NodeType] = None, bad_types: List[NodeType] = None) -> List[Node]:
+        '''Keep nodes of good_types and discard those of bad_types'''
+        good_types = set(good_types if good_types else self.types).difference(bad_types if bad_types else [])
+        return [n for n in (nodes if nodes else self.G.nodes) if self.G.nodes[n][self.type_attr] in good_types]
+
+    def necessity_sufficiency_filter(self, list_state: List[Node], candidates: List[Node], check_only_state_types = False) -> List[Node]:
+        '''Keep candidates who have all their necessary neighbours and any of their sufficient ones in list_state
+            Setting count_only_state_types to True restricts necessity/sufficiency checks to only nodes of types present in the state;
+                this is reasonable for GSMs performing some sequential pathing through an ontology,
+                in which nodes of types not yet in consideration should not affect steps before they are'''
+        state_types = set(self.nodes_to_types[c] for c in candidates)
+        return [c for c in candidates
+                if (edges := self.G.edges(c, data = True), # Assignments in a single tuple so that it evaluates to True
+                    necessary  := [n for _, n, d in edges if d.get('necessary_for')  == c],
+                    sufficient := [n for _, n, d in edges if d.get('sufficient_for') == c])
+                if not necessary or all(n in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for n in necessary)
+                if not sufficient or any(s in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for s in sufficient)]
+
+    def _check_problematic_sufficiencies(self):
+        if problematic := {c: dict(are_sufficient = sufficient, plain = plain) for c in self.G.nodes
+         if (edges := self.G.edges(c, data = True), # Assignments in a single tuple so that it evaluates to True
+             sufficient := [n for _, n, d in edges if d.get('sufficient_for') == c],
+             plain      := [n for _, n, d in edges if d.get('sufficient_for') == d.get('necessary_for') == None])
+         if sufficient and plain}:
+            warn(f'IMPORTANT:\n'
+                 f'Some nodes in the graph (reported below) have both some neighbours which are sufficient for them and some with plain edges.\n'
+                 f'If this is not intentional, be aware that strictly checking for sufficiency may lead to situations in which these nodes '
+                 f'will be discarded if no sufficient neighbour is in state EVEN if all plain ones are (which would be problematic if, say, '
+                 f'those plain ones were jointly sufficient).\n\n'
+                 f'The problematic nodes are: {problematic}\n\n'
+                 f'Possible solutions to this situation include:\n '
+                 f'\t- carefully checking that this is not a problem for the given use case\n'
+                 f'\t- carefully checking that changing some Scanner parameter (possibly check_only_state_types) ensure this is not a problem for the given use case\n'
+                 f'\t- redesigning the involved graph portions to interpose a new node type such that all '
+                 f'its instances are on one side sufficient for the node in question and on the other are reached by jointly-sufficient current '
+                 f'neighbour collections\n'
+                 f'\t- using necessity but not sufficiency (i.e. removing the sufficiency edge attributes)\n\n'
+                 f'Ideally the situation would be resolved by addressing the cause of this warning, but if it is acceptably handled by determining '
+                 f'things are fine as they are, this warning may be suppressed by setting warn_about_problematic_sufficiencies to False on Graph declaration '
+                 f'(and, if desired, on independent calls to the .consistent method).')
 
 
     # Plotting methods
@@ -127,13 +181,34 @@ class Graph:
         coords = layout(self.G, **layout_args)
 
         if plotly:
-            # Edges
+            # All edges
             edge_x, edge_y = map(lambda xs: intersperse_val(xs, None, 2, append = True), zip(*flatten([(coords[a], coords[b]) for a, b in self.G.edges()])))
             traces = [go.Scatter(x = edge_x, y = edge_y, showlegend = False,
                 line = dict(width = 0.5, color = '#606060'), hoverinfo = 'none', mode = 'lines')]
 
+            # Necessity & sufficiency arrows (added to fig itself later, but prepared here for tidiness)
+            digraphs = dict(necessary_for = [], sufficient_for = [])
+            for a, b, d in self.G.edges(data = True):
+                for attr in d: digraphs[attr].append((a, b)[::(-1 if d[attr] == a else 1)])
+            arrows = []
+            for attr, colour, width, shorter in [('necessary_for', 'tomato', 2.5, 0.02), ('sufficient_for', 'royalblue', 1.5, 0.01)]:
+                for a, b in digraphs[attr]:
+                    ax, ay, bx, by = coords[a][0], coords[a][1], coords[b][0], coords[b][1]
+                    # Would use the below arrow shortening in order not to cross nodes' boundaries, but plotly scales the coordinates
+                    #   to match the window shape, therefore any in-coordinates shift becomes disproportionate;
+                    #   would need absolute coordinates (like those determining the node size from a parameter)
+                    # angle = np.arctan2([by - ay], [bx - ax])[0]
+                    # ax += shorter * np.cos(angle)
+                    # bx -= shorter * np.cos(angle)
+                    # ay += shorter * np.sin(angle)
+                    # by -= shorter * np.sin(angle)
+                    arrows.append(go.layout.Annotation(dict(
+                        x = bx, y = by, ax = ax, ay = ay,
+                        xref = 'x', yref = 'y', axref = 'x', ayref = 'y', text = '',
+                        showarrow = True, arrowhead = 3, arrowwidth = width, arrowsize = 1, arrowcolor = colour) ) )
+
             # Nodes by type
-            for node_type, nodes in self.nodes_of_types().items():
+            for node_type, nodes in self.group_nodes().items():
                 node_x, node_y = map(list, zip(*[coords[n] for n in nodes]))
                 traces.append(go.Scatter(x = node_x, y = node_y,
                     name = node_type, mode = 'markers', hoverinfo = 'text', showlegend = True, # labels are annotations later, so no '+text' in mode
@@ -155,9 +230,10 @@ class Graph:
                 # title = 'GSM', titlefont_size = 16,
                 showlegend = True, legend_title_text = 'Node Types',
                 hovermode = 'closest',
-                margin = dict(b = 20, l = 5, r = 5, t = 40),
+                margin = dict(t = 25, b = 20, l = 5, r = 5),
                 xaxis = dict(showgrid = False, zeroline = False, showticklabels = False),
                 yaxis = dict(showgrid = False, zeroline = False, showticklabels = False) ))
+            fig.update_layout(annotations = arrows) # Necessity & sufficiency
 
             # Labels (separate and as annotations in order to, respectively, write over nodes and control the angle)
             if radial_labels:
@@ -184,6 +260,15 @@ class Graph:
                 font_size = 10, node_size = 500, edge_color = (0.2, 0.2, 0.2, 0.7))
             plot_args = {k: networkx_plot_args[k] if k in networkx_plot_args else v for k, v in plot_args.items()}
             nx.draw(self.G, coords, **plot_args)
+
+            # Necessity & sufficiency arrows
+            digraphs = dict(necessary_for = [], sufficient_for = [])
+            for a, b, d in self.G.edges(data = True):
+                for attr in d: digraphs[attr].append((a, b)[::(-1 if d[attr] == a else 1)])
+            for attr, colour, width, arrowsize in [('necessary_for', 'tomato', 2, 25), ('sufficient_for', 'royalblue', 1, 20)]:
+                nx.draw_networkx_edges(nx.DiGraph(digraphs[attr]), coords,#{k: v for k, v in coords.items() if k in dg.nodes()},
+                   edge_color = colour, arrows = True, width = width, arrowsize = arrowsize, arrowstyle = '-|>') # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.ArrowStyle.html#matplotlib.patches.ArrowStyle
+
             # The following is a networkx-matplotlib hack to print a colour legend: use empty scatter plots
             for t, c in self.colour_map.items(): plt.scatter([], [], c = [c], label = t)
             plt.legend()

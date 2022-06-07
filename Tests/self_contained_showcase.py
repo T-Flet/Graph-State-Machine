@@ -4,29 +4,29 @@ from Graph_State_Machine import *
 
 _shorthand_graph = {
     'Distribution': {
-        'Normal': ['stan_glm', 'glm', 'gaussian'],
-        'Binomial': ['stan_glm', 'glm', 'binomial'],
-        'Multinomial': ['stan_polr', 'polr_tolerant', 'multinom'],
-        'Poisson': ['stan_glm', 'glm', 'poisson'],
-        'Beta': ['stan_betareg', 'betareg'],
-        'gamma': ['stan_glm', 'glm', 'Gamma'],
-        'Inverse Gaussian': ['stan_glm', 'glm', 'inverse.gaussian']
-    },
+        'Normal': dict(necessary_for = ['gaussian'], plain = ['stan_glm', 'glm']),
+        'Binomial': dict(necessary_for = ['binomial'], plain = ['stan_glm', 'glm']),
+        'Multinomial': dict(necessary_for = ['multinom'], plain = ['stan_polr', 'polr_tolerant']),
+        'Poisson': dict(necessary_for = ['poisson'], plain = ['stan_glm', 'glm']),
+        'Beta': dict(necessary_for = ['betareg'], plain = ['stan_betareg']),
+        'gamma': dict(necessary_for = ['Gamma'], plain = ['stan_glm', 'glm']),
+        'Inverse Gaussian': dict(necessary_for = ['inverse.gaussian'], plain = ['stan_glm', 'glm']),
+    }, # The end-nodes of the edges above need to be declared as of some type (below), but no need to repeat or split the edges
     'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
     'Methodology Function': strs_as_keys(['glm', 'betareg', 'polr_tolerant', 'multinom', 'stan_glm', 'stan_betareg', 'stan_polr']),
-    'Data Feature': adjacencies_lossy_reverse({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
-        'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
-        'Poisson': ['Non-Negative', 'Integer', 'Consecutive', 'Counts-Like'],
-        'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
+    'Data Feature': reverse_adjacencies({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
+        'Binomial': dict(are_sufficient = ['Binary', 'Boolean'], plain = ['Integer', '[0,1]']),
+        'Poisson': dict(are_necessary = ['Counts-Like', 'Non-Negative', 'Integer'], plain = ['Consecutive']),
+        'Multinomial': dict(are_sufficient = ['Factor'], plain = ['Consecutive', 'Non-Negative', 'Integer']),
         'Normal': ['Integer', 'Real', '+ and -'],
-        'Beta': ['Real', '[0,1]'],
-        'gamma': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
-        'Inverse Gaussian': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
+        'Beta': dict(are_necessary = ['Real', '[0,1]']),
+        'gamma': dict(are_necessary = ['Non-Negative', 'Non-Zero'], plain = ['Integer', 'Real']),
+        'Inverse Gaussian': dict(are_necessary = ['Non-Negative', 'Non-Zero'], plain = ['Integer', 'Real']),
         'polr_tolerant': ['Consecutive']
     })
 }
 
-gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Using default function-arguments
+gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Using default arguments
     # The default node_scanner is by jaccard similarity score, and supports 4 additional arguments to filter candidates
     # and their neighbours by type; only the first one (candidate type list) is used in the examples below
 
@@ -34,7 +34,7 @@ gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Us
 # gsm.plot(layout = nx.shell_layout, radial_labels = True)
 # gsm.plot(plotly = False)
 
-gsm.consecutive_steps(dict(node_types = ['Distribution']), dict(node_types = ['Family Implementation']))
+gsm.consecutive_steps(dict(candidate_types = ['Distribution']), dict(candidate_types = ['Family Implementation']))
     # Perform 2 steps, giving one optional argument (incidentally, the first one) for each step,
     # i.e. the (singleton) list of types to focus on
 

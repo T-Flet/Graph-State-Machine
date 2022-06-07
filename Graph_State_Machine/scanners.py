@@ -7,25 +7,42 @@ from Graph_State_Machine.scores import Score, jaccard_similarity
 from Graph_State_Machine.types import *
 
 
-def by_score(score_function: Score = jaccard_similarity) -> Scanner:
-    '''Produce a Step function which orders nodes by the given Score function'''
+def by_score(score_function: Score = jaccard_similarity, check_only_state_types = False, check_necessity_sufficiency = True) -> Scanner:
+    '''Produce a Step function which orders nodes by the given Score function
+        (can also provide the default values of two Scanner parameters which can be deviated from individually on each GSM.step call)'''
     def scan_closure(graph: Graph, list_state: List[Node],
-                     node_types: List[NodeType] = [], not_node_types: List[NodeType] = [],
-                     neighbour_types: List[NodeType] = [], not_neighbour_types: List[NodeType] = []) -> List[Tuple[Node, float]]:
-        '''NOTE: node_types and not_node_types govern which list_state nodes' neighbour to consider,
-        while neighbour_types end not_neighbour_types do the same for the second order neighbours, i.e. the neighbours of the above neighbours.
-        The utility of the latter pair is in including/excluding some node types when comparing the candidates neighbours with the current state'''
-        if any(not isinstance(arg, list) for arg in [node_types, not_node_types, neighbour_types, not_neighbour_types]):
-            raise TypeError(f'The arguments node_types, not_node_types, neighbour_types and not_neighbour_types should be lists of node types; received {node_types}, {not_node_types}, {neighbour_types} and {not_neighbour_types}')
-        scores = [(n, score) for n in set(flatten(graph.relevant_neighbours(list_state, node_types, not_node_types)))
-                    if (score := score_function(list_state, graph.relevant_neighbours([n], neighbour_types, not_neighbour_types)[0])) > 0]
+                     candidate_types: List[NodeType] = None, bad_candidate_types: List[NodeType] = None,
+                     neighbour_types: List[NodeType] = None, bad_neighbour_types: List[NodeType] = None,
+                     check_only_state_types = check_only_state_types,
+                     check_necessity_sufficiency = check_necessity_sufficiency) -> List[Tuple[Node, float]]:
+        '''NOTE: candidate_types and bad_candidate_types govern which list_state nodes' neighbour to consider,
+            while neighbour_types end bad_neighbour_types do the same for the second order neighbours, i.e. the neighbours of the above neighbours.
+            The utility of the latter pair is in including/excluding some node types when comparing the candidates' neighbours with the current state'''
+        if any(bad_args := {arg: v for arg, v in dict(candidate_types = candidate_types, bad_candidate_types = bad_candidate_types, neighbour_types = neighbour_types, bad_neighbour_types = bad_neighbour_types).items() if v is not None and not isinstance(v, list)}):
+            raise TypeError(f'The following arguments should be lists of node types but received these values: {bad_args}')
+
+        candidates = set(flatten(graph.relevant_neighbours(list_state, candidate_types, bad_candidate_types)))
+        if check_necessity_sufficiency: candidates = graph.necessity_sufficiency_filter(list_state, candidates, check_only_state_types)
+        scores = [(c, score) for c in candidates
+                  if (score := score_function(list_state, graph.relevant_neighbours([c], neighbour_types, bad_neighbour_types)[0])) > 0]
         return sorted(scores, key = lambda x: (-x[1], x[0]), reverse = False) # nested ordering: first by score, then by node name
     return scan_closure
 
 
-def neighbour_intersection(graph: Graph, list_state: List[Node], node_types: List[NodeType] = [], not_node_types: List[NodeType] = []) -> List[Tuple[Node, int]]:
-    '''Order nodes by counts of presence in immediate state neighbours'''
-    res_counts = reduce(add, [Counter(ns) for ns in graph.relevant_neighbours(list_state, node_types, not_node_types)])
+def neighbour_intersection(graph: Graph, list_state: List[Node],
+                           candidate_types: List[NodeType] = None, bad_candidate_types: List[NodeType] = None,
+                           neighbour_types: List[NodeType] = None, bad_neighbour_types: List[NodeType] = None,
+                           check_necessity_sufficiency = True) -> List[Tuple[Node, int]]:
+    '''Order nodes by counts of presence in immediate state neighbours
+        (standard candidate and neighbour type filters apply, with the latter acting directly on nodes in list_state in this Scanner)'''
+    if any(bad_args := {arg: v for arg, v in dict(candidate_types = candidate_types, bad_candidate_types = bad_candidate_types, neighbour_types = neighbour_types, bad_neighbour_types = bad_neighbour_types).items() if v is not None and not isinstance(v, list)}):
+        raise TypeError(f'The following arguments should be lists of node types but received these values: {bad_args}')
+
+    filtered_state = graph.type_filter(list_state, neighbour_types, bad_neighbour_types) # The state nodes ARE the totality of neighbours in this Scanner
+    res_counts = reduce(add, [Counter(ns) for ns in graph.relevant_neighbours(filtered_state, candidate_types, bad_candidate_types)])
+    if check_necessity_sufficiency:
+        ok_candidates = graph.necessity_sufficiency_filter(filtered_state, res_counts.keys())
+        for c in set(res_counts.keys()).difference(ok_candidates): del res_counts[c]
     return res_counts.most_common()
 
 
