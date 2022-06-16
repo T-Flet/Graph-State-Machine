@@ -30,7 +30,7 @@ class GSM:
         self.log = [dict(method = '__init__', graph = graph, state = state, node_scanner = node_scanner,
                          state_updater = state_updater, list_accumulator = list_accumulator, selector = selector)]
 
-    def __str__(self): return self.state.__str__()
+    def __str__(self): return f'GSM State: {self.state.__str__()}'
 
 
     # Core functionality methods
@@ -74,9 +74,10 @@ class GSM:
     # Plotting methods
 
     def plot(self, override_highlight: List[Node] = None,
+             show_necessity = True, show_sufficiency = True,
              layout = nx.kamada_kawai_layout, layout_args: Dict[str, Any] = {},
              plotly = True, radial_labels = False, networkx_plot_args: Dict[str, Any] = {}):
-        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), layout, layout_args, plotly, radial_labels, networkx_plot_args)
+        return self.graph.plot(override_highlight if override_highlight else self.selector(self.state), show_necessity, show_sufficiency, layout, layout_args, plotly, radial_labels, networkx_plot_args)
 
 
     # Utility methods

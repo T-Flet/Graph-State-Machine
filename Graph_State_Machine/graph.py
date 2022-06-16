@@ -67,7 +67,7 @@ class Graph:
                 set_to = end if set_to_end else start
                 if (nfor := G[start][end].get(attribute_name)):
                     if set_to == nfor: warn(f"Redundancy in typed adjacency list: the '{attribute_name}' attribute of edge '{start}'-'{end}' was already set")
-                    else: raise ValueError(  f"Conflict in typed adjacency list: the '{attribute_name}' attribute of edge '{start}'-'{end}' was already set")
+                    else: raise ValueError(   f"Conflict in typed adjacency list: the '{attribute_name}' attribute of edge '{start}'-'{end}' was already set")
                 G.add_edge(start, end, **{attribute_name: set_to}) # Reached if no error was raised
 
     def consistent(self, warn_about_problematic_sufficiencies = True):
@@ -115,6 +115,8 @@ class Graph:
 
     # Utility methods
 
+    def type_set(self, nodes: List[Node]) -> Set[NodeType]: return set(self.nodes_to_types[n] for n in nodes)
+
     def relevant_neighbours(self, nodes: List[Node], good_types: List[NodeType] = None, bad_types: List[NodeType] = None) -> List[List[Node]]:
         '''Return neighbours of state nodes of the specified types or all types if none specified'''
         return [self.type_filter(self.G.neighbors(sn), good_types, bad_types) for sn in nodes]
@@ -124,18 +126,24 @@ class Graph:
         good_types = set(good_types if good_types else self.types).difference(bad_types if bad_types else [])
         return [n for n in (nodes if nodes else self.G.nodes) if self.G.nodes[n][self.type_attr] in good_types]
 
-    def necessity_sufficiency_filter(self, list_state: List[Node], candidates: List[Node], check_only_state_types = False) -> List[Node]:
+    def necessity_sufficiency_filter(self, list_state: List[Node], candidates: List[Node],
+                                     check_necessity = True, check_sufficiency = True,
+                                     check_only_state_types = False) -> List[Node]:
         '''Keep candidates who have all their necessary neighbours and any of their sufficient ones in list_state
-            Setting count_only_state_types to True restricts necessity/sufficiency checks to only nodes of types present in the state;
+            Setting check_only_state_types to True restricts necessity/sufficiency checks to only nodes of types present in the state;
                 this is reasonable for GSMs performing some sequential pathing through an ontology,
                 in which nodes of types not yet in consideration should not affect steps before they are'''
-        state_types = set(self.nodes_to_types[c] for c in candidates)
+        if not check_necessity and not check_sufficiency:
+            warn('Called necessity_sufficiency_filter with both check_necessity and check_sufficiency False; candidates passed through unaffected')
+            return candidates
+
+        state_types = self.type_set(list_state) # Otherwise recomputed for every candidate
         return [c for c in candidates
-                if (edges := self.G.edges(c, data = True), # Assignments in a single tuple so that it evaluates to True
-                    necessary  := [n for _, n, d in edges if d.get('necessary_for')  == c],
-                    sufficient := [n for _, n, d in edges if d.get('sufficient_for') == c])
-                if not necessary or all(n in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for n in necessary)
-                if not sufficient or any(s in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for s in sufficient)]
+            if (edges := self.G.edges(c, data = True), # Assignments in a single tuple so that it evaluates to True
+                necessary  := [n for _, n, d in edges if d.get('necessary_for')  == c],
+                sufficient := [n for _, n, d in edges if d.get('sufficient_for') == c])
+            if not check_necessity   or not necessary  or all(n in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for n in necessary)
+            if not check_sufficiency or not sufficient or any(n in list_state or (check_only_state_types and self.nodes_to_types[n] not in state_types) for n in sufficient)]
 
     def _check_problematic_sufficiencies(self):
         if problematic := {c: dict(are_sufficient = sufficient, plain = plain) for c in self.G.nodes
@@ -155,10 +163,11 @@ class Graph:
                  f'\t- redesigning the involved graph portions to interpose a new node type such that all '
                  f'its instances are on one side sufficient for the node in question and on the other are reached by jointly-sufficient current '
                  f'neighbour collections\n'
-                 f'\t- using necessity but not sufficiency (i.e. removing the sufficiency edge attributes)\n\n'
+                 f'\t- "sacrificing" the sufficiency edge attributes for the problematic nodes\n'
+                 f'\t- using necessity but not sufficiency (i.e. setting check_sufficiency to False in the Scanner arguments either on GSM declaration or individually at each .step)\n\n'
                  f'Ideally the situation would be resolved by addressing the cause of this warning, but if it is acceptably handled by determining '
                  f'things are fine as they are, this warning may be suppressed by setting warn_about_problematic_sufficiencies to False on Graph declaration '
-                 f'(and, if desired, on independent calls to the .consistent method).')
+                 f'(and, if desired, on independent calls to the .consistent method).\n')
 
 
     # Plotting methods
@@ -171,13 +180,13 @@ class Graph:
         else: return cols, cols
 
     def plot(self, nodes_with_outline: List[Node] = None,
+             show_necessity = True, show_sufficiency = True,
              layout: Callable[[Any], Dict[Any, Iterable[float]]] = nx.kamada_kawai_layout, layout_args: Dict[str, Any] = {},
              plotly = True, radial_labels = False, networkx_plot_args: Dict[str, Any] = {}):
         '''Plots the GSM graph either through plotly or networkx.
             - layout and layout_args are always used
             - networkx_plot_args is only used if plotly is False; reference for its content: https://networkx.org/documentation/stable/reference/generated/networkx.drawing.nx_pylab.draw_networkx.html .
-            - radial_labels is only used if plotly is True, and is intended for use with the nx.shell_layout layout
-        '''
+            - radial_labels is only used if plotly is True, and is intended for use with the nx.shell_layout layout'''
         coords = layout(self.G, **layout_args)
 
         if plotly:
@@ -192,6 +201,8 @@ class Graph:
                 for attr in d: digraphs[attr].append((a, b)[::(-1 if d[attr] == a else 1)])
             arrows = []
             for attr, colour, width, shorter in [('necessary_for', 'tomato', 2.5, 0.02), ('sufficient_for', 'royalblue', 1.5, 0.01)]:
+                if not show_necessity   and attr == 'necessary_for':  continue
+                if not show_sufficiency and attr == 'sufficient_for': continue
                 for a, b in digraphs[attr]:
                     ax, ay, bx, by = coords[a][0], coords[a][1], coords[b][0], coords[b][1]
                     # Would use the below arrow shortening in order not to cross nodes' boundaries, but plotly scales the coordinates
@@ -233,7 +244,7 @@ class Graph:
                 margin = dict(t = 25, b = 20, l = 5, r = 5),
                 xaxis = dict(showgrid = False, zeroline = False, showticklabels = False),
                 yaxis = dict(showgrid = False, zeroline = False, showticklabels = False) ))
-            fig.update_layout(annotations = arrows) # Necessity & sufficiency
+            fig.update_layout(annotations = arrows) # necessity & sufficiency if present
 
             # Labels (separate and as annotations in order to, respectively, write over nodes and control the angle)
             if radial_labels:
@@ -266,6 +277,8 @@ class Graph:
             for a, b, d in self.G.edges(data = True):
                 for attr in d: digraphs[attr].append((a, b)[::(-1 if d[attr] == a else 1)])
             for attr, colour, width, arrowsize in [('necessary_for', 'tomato', 2, 25), ('sufficient_for', 'royalblue', 1, 20)]:
+                if not show_necessity   and attr == 'necessary_for':  continue
+                if not show_sufficiency and attr == 'sufficient_for': continue
                 nx.draw_networkx_edges(nx.DiGraph(digraphs[attr]), coords,#{k: v for k, v in coords.items() if k in dg.nodes()},
                    edge_color = colour, arrows = True, width = width, arrowsize = arrowsize, arrowstyle = '-|>') # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.ArrowStyle.html#matplotlib.patches.ArrowStyle
 

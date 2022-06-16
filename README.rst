@@ -22,8 +22,8 @@ Graph-State-Machine
     :alt: License
 
 A simple library to build easily interpretable computational constructs similar to Turing machines
-over graphs, where states are combinations of a graph's (typed) nodes;
-an example use would be a transparent backend logic which navigates an ontology
+over graphs, where states can be (but are not limited to) combinations of a graph's (typed) nodes;
+an example use would be a transparent backend logic which navigates a network of sub-states
 
 
 Installation
@@ -39,7 +39,7 @@ Description
 -----------
 
 This package implements a computational construct similar to a Turing machine over a graph,
-where states are node combinations (though more information may be stored) and where the arbitrary
+where states are typically node combinations (state objects can be arbitrary) and where the arbitrary
 transition function can update both state and graph.
 Note that this last arbitrariness makes the system Turing complete since it allows implementing
 a Turing machine with it (achieved by defining the graph to be a linear array and the state as a tuple
@@ -51,13 +51,13 @@ Given a graph with typed nodes and a state object from which a list of nodes can
 :code:`Scanner`
   A generalised neighbourhood function, which scans the graph "around" the state nodes and returns a scored
   list of nodes for further processing; additional and optional arguments can be included, e.g. to filter by type
-:code:`Step`
+:code:`Updater`
   A function to process the scan result and thus update the state and possibly the graph itself
 
 This computational construct is different from a finite state machine on a graph and from a
 graph cellular automaton, but it shares some similarities with both in that it generalises some of
 their features for the benefit of human ease of design and readability.
-For example, a :code:`GSM`’s graph
+For example, a :code:`GSM`'s graph
 generalises a finite state machine’s state graph by allowing the combinations of nodes to represent
 state, and the scanner function is just a generalisation of a graph cellular automaton’s neighbourhood
 function in both domain and codomain.
@@ -65,10 +65,13 @@ As previously mentioned, it is closer to a Turing machine on
 a graph than either of the above, one whose programming is split between the internal state rules
 and the graph topology, thus allowing programs to be simpler and with a more easily readable state.
 
-Besides pure academic exploration of the construct, some possible uses of it are:
+Said graph topology can be further enriched/simplified by the presence of arbitrary information in the form of
+node or edge attributes, which can then be used by arbitrary step rules;
+an example of this are edge attributes representing directed necessity and sufficiency of those links.
 
-- implementing backend logics which are best represented by graphs, e.g. an "expert system"
-- pathing through ontologies by entity proximity or similarity
+Besides pure academic exploration of the construct, some uses for it are
+implementing backend logics which are best represented by graphs (e.g. an "expert system"),
+or pathing through ontologies by entity proximity or similarity.
 
 
 
@@ -110,14 +113,92 @@ which ones were added by steps.
 Simple default constructor functions for this :code:`State` type are provided:
 :code:`dict_fields_getter` (for :code:`selector`), which takes in the list of fields to concatenate, and :code:`list_in_dict_accumulator` (for :code:`Updater`), which takes in the single field to update.
 
-Note: since the underlying object is a NetworkX graph, arbitrary node and edge attributes can be used to enhance the processing functions.
+Since the underlying object is a NetworkX graph, the wide variety of functionality that library provides can easily
+be made use of,
+but, as previously mentioned, even simply adding arbitrary node and edge attributes can greatly enhance/simplfy a GSM's
+processing.
+For example, directed necessity and sufficiency edge attributes are a reasonable addition to the graph for typical usecases,
+therefore support for them is built into the provided :code:`Scanner` functions, graph creation shorthand and
+plotting method(s).
+
+
+
+Graph Creation Shorthand
+------------------------
+
+Graphs can be created quickly by letting the :code:`Graph` class constructor directly parse a specific format of
+typed adjacency list, one with Python type signature
+:code:`TypedAdjacencies = Dict[NodeType, Dict[Node, Union[List[Node], Dict[str, List[Node]]]]]`
+(:code:`Node` and :code:`NodeType` are just convenient aliases for :code:`str`),
+i.e. an object of the following structure:
+
+::
+
+    dict(
+        NodeType = dict(
+            Node = <NODES TO WHICH THERE IS AN EDGE>,
+            ...
+        ),
+        ...
+    )
+
+where :code:`<NODES TO WHICH THERE IS AN EDGE>` can be:
+
+- an empty list: no edges to the base node are being declared at this point (but could be declared from the node at the other end)
+- a list of :code:`Node`-s
+- [If the intention is to have directed necessity and sufficiency edge attributes] a dictionary of lists of :code:`Node`-s, with the keys being any of
+
+        ::
+
+            necessary_for: nodes for which the base node is necessary
+            sufficient_for: nodes for which the base node is sufficient
+            are_necessary: nodes which are necessary for the base node
+            are_sufficient: nodes which are sufficient for the base node
+            plain: nodes which share and edge with the base node without necessity or sufficiency relationships
+
+The structure checks that every node is declared as of some type,
+and it identifies redundancies and clashes, respectively raising warnings and errors.
+These checks granted, edges (and their necessity and sufficiency attributes) can be added at either node declaration.
+
+
+Convenience Functions
+^^^^^^^^^^^^^^^^^^^^^
+
+Two convenience functions are provided for writing the inner dictionaries of the typed adjacency list more naturally:
+
+- :code:`strs_as_keys`: given a list of :code:`Node`-s (strings), create a dictionary of empty lists with them as keys;
+  for batch declaration of nodes without (for the moment) declared edges.
+  Schematic example: :code:`[A, B] -> {A: [], B: []}`
+
+- :code:`reverse_adjacencies`: given a :code:`<NODES TO WHICH THERE IS AN EDGE>`, return the reverse-direction
+  :code:`<NODES TO WHICH THERE IS AN EDGE>`, possibly losing singletons
+  (an :code:`allow_losing_singletons` argument is :code:`False` by default, raising exceptions to prevent losses).
+  This is useful when it is more natural to declare nodes of a specific type as the endpoint of edges
+  from other nodes (perhaps of mixed types);
+  e.g. when the node type in question is semantically a feature or qualifier applicable to more than one kind of entity
+  (like :code:`'Data Features'` in the exaple below).
+  Schematic example: :code:`{A: [B, C], D: []} -> {B: [A], C: [A]}`
+
+
+Note on Necessity & Sufficiency
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use of necessity and sufficiency edge attributes is on by default in the provided :code:`Scanner` functions,
+and a detailed warning (including possible solutions) is produced if possibly problematic graph features occur,
+but for the sake of user customisation, experimentation and debugging,
+support for each can be turned off separately by setting the :code:`Scanner`-s' :code:`check_necessity` and/or :code:`check_sufficiency`
+arguments to :code:`False` (either when constructing the :code:`GSM` or individually at each :code:`GSM.step` call).
+
+(The warning will appear if required and containes more details, but the gist of the possible issue is that
+the presence of neither-necessary-nor-sufficient neighbours of a candidate node in the state
+does not protect against the absence of sufficient ones).
 
 
 
 Simple Example
 --------------
 
-A GSM which determines the appropriate R linear regression function and distribution family from labelled data features:
+A small GSM which selects the appropriate R linear regression function and distribution family from labelled data features:
 
 - Define a numerical data-type ontology graph in the typed edge-list shorthand which :code:`Graph` accepts along with ready-made Networkx graphs, making use of two simple notation helper functions
 - Create a default-settings :code:`GSM` with it and a simple starting state
@@ -145,7 +226,7 @@ A GSM which determines the appropriate R linear regression function and distribu
         },
         'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
         'Methodology Function': strs_as_keys(['glm', 'betareg', 'polr_tolerant', 'multinom', 'stan_glm', 'stan_betareg', 'stan_polr']),
-        'Data Feature': adjacencies_lossy_reverse({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
+        'Data Feature': reverse_adjacencies({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
             'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
             'Poisson': ['Non-Negative', 'Integer', 'Consecutive', 'Counts-Like'],
             'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
@@ -157,28 +238,31 @@ A GSM which determines the appropriate R linear regression function and distribu
         })
     }
 
-    gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Default function-arguments
+    gsm = GSM(Graph(_shorthand_graph), ['Non-Negative', 'Non-Zero', 'Integer']) # Using default arguments
+        # The default node_scanner is by jaccard similarity score, and takes additional arguments to filter candidates
+        # and their neighbours by type; only the first one (candidate type list) is used in the examples below
 
     gsm.plot()
-    # gsm.plot(layout = nx.shell_layout, radial_labels = True)
-    # gsm.plot(plotly = False)
+    # import networkx as nx
+    # gsm.plot(layout = nx.shell_layout, radial_labels = True) # Some other layout
+    # gsm.plot(plotly = False, show_necessity = False, show_sufficiency = True) # Networkx's native plotting backend instead of Plotly
 
-    gsm.consecutive_steps(dict(node_types = ['Distribution']), dict(node_types = ['Family Implementation']))
-        # Perform 2 steps, giving one optional argument (incidentally, the first one) for each step,
-        # i.e. the (singleton) list of types to focus on
+    gsm.consecutive_steps(dict(candidate_types = ['Distribution']), dict(candidate_types = ['Family Implementation']))
+        # Perform 2 steps, providing named arguments (in this case only one) to the Scanner function as a dictionary
 
     # gsm.consecutive_steps([['Distribution']], [['Family Implementation']]) # Unnamed-arguments version of the above
     # gsm.parallel_steps([['Distribution']], [['Family Implementation']]) # Parallel version, warning of failure for 'Family Implementation'
+
     print(gsm.log[-2], '\n') # Can check the log for details of the second-last step, where a tie occurs.
                              # Ties are rare, and the default Updater only picks one result, but arbitrary action may be taken
 
-    print(gsm._scan(['Methodology Function']), '\n') # Can also peek ahead at the intermediate value of a possible next step
-    gsm.step(['Methodology Function']) # Perform the step
+    print(gsm._scan(['Methodology Function']), '\n') # Can also peek at the intermediate value of a step without going through with it
+    gsm.step(['Methodology Function']) # Perform the step (unnamed-Scanner-arguments version)
 
     gsm.step(['NON EXISTING TYPE']) # Trigger a warning and no State changes
     print(gsm.log[-1], '\n') # The failed step is also logged
 
-    print(gsm)
+    print(gsm) # Prints the GSM State
 
 
 The 'Methodology Function' scan above is peeked at before its step to show that there is a tie between a Frequentist and a Bayesian method.
@@ -186,11 +270,16 @@ This is a trivial example (in that the simple addition could have been there fro
 
 Note that ties need not really be resolved as long as the :code:`Updater` function's behaviour is what the user expects since it is not limited in functionality; it could select a random option, all, some or none of them, it could adjust the graph itself or terminate execution.
 
+See the Tests/self_contained_showcase_dict_state.py and Tests/self_contained_showcase_nec_suff.py files for slightly
+different versions of the above (the former with a state which is not a simple liest, and the latter with a graph
+including necessity and sufficiency relationships).
+
+
 
 Plotting
 --------
 
-The default plot layout and backend are Kamada-Kawai and Plotly (as in the image above),
+The default plot layout is Kamada-Kawai, and the default backend is Plotly (as in the image above),
 but arbitrary layouts can be provided, and the NetworkX-generated pyplot plotting is also available.
 Here are some alternative plotting possibilities:
 
@@ -212,5 +301,12 @@ Here are some alternative plotting possibilities:
     :figclass: align-center
 
     NetworkX-generated pyplot plot: gsm.plot(plotly = False)
+
+
+.. figure:: nec_suff_graph.png
+    :align: center
+    :figclass: align-center
+
+    Default (Plotly) plot for a version of the graph with necessity/sufficiency relationships: gsm.plot(), but worth highlighting default argument values: show_necessity = True, show_sufficiency = True
 
 
