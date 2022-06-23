@@ -67,7 +67,7 @@ and the graph topology, thus allowing programs to be simpler and with a more eas
 
 Said graph topology can be further enriched/simplified by the presence of arbitrary information in the form of
 node or edge attributes, which can then be used by arbitrary step rules;
-an example of this are edge attributes representing directed necessity and sufficiency of those links.
+an example of this are attributes representing necessity and sufficiency of those links.
 
 Besides pure academic exploration of the construct, some uses for it are
 implementing backend logics which are best represented by graphs (e.g. an "expert system"),
@@ -117,7 +117,7 @@ Since the underlying object is a NetworkX graph, the wide variety of functionali
 be made use of,
 but, as previously mentioned, even simply adding arbitrary node and edge attributes can greatly enhance/simplfy a GSM's
 processing.
-For example, directed necessity and sufficiency edge attributes are a reasonable addition to the graph for typical usecases,
+For example, necessity and sufficiency relationships are a reasonable addition to the graph for typical usecases,
 therefore support for them is built into the provided :code:`Scanner` functions, graph creation shorthand and
 plotting method(s).
 
@@ -128,9 +128,9 @@ Graph Creation Shorthand
 
 Graphs can be created quickly by letting the :code:`Graph` class constructor directly parse a specific format of
 typed adjacency list, one with Python type signature
-:code:`TypedAdjacencies = Dict[NodeType, Dict[Node, Union[List[Node], Dict[str, List[Node]]]]]`
-(:code:`Node` and :code:`NodeType` are just convenient aliases for :code:`str`),
-i.e. an object of the following structure:
+:code:`Dict[NodeType, Dict[Node, Union[List[Node], Dict[str, List[Union[Node, List[Node]]]]]]]`
+(:code:`Node` and :code:`NodeType` are just convenient aliases for :code:`str`)
+and following this structure:
 
 ::
 
@@ -146,19 +146,19 @@ where :code:`<NODES TO WHICH THERE IS AN EDGE>` can be:
 
 - an empty list: no edges to the base node are being declared at this point (but could be declared from the node at the other end)
 - a list of :code:`Node`-s
-- [If the intention is to have directed necessity and sufficiency edge attributes] a dictionary of lists of :code:`Node`-s, with the keys being any of
+- [If the intention is to have necessity and sufficiency relationships] a dictionary of lists of :code:`Node`-s, with possible entries:
 
         ::
 
             necessary_for: nodes for which the base node is necessary
             sufficient_for: nodes for which the base node is sufficient
             are_necessary: nodes which are necessary for the base node
-            are_sufficient: nodes which are sufficient for the base node
-            plain: nodes which share and edge with the base node without necessity or sufficiency relationships
+            are_sufficient: nodes OR LISTS OF NODES which are individually or jointly sufficient for the base node
+            plain: nodes which share and edge with the base node without necessity or sufficiency relationships (at least not declared here)
 
 The structure checks that every node is declared as of some type,
 and it identifies redundancies and clashes, respectively raising warnings and errors.
-These checks granted, edges (and their necessity and sufficiency attributes) can be added at either node declaration.
+These checks granted, edges and necessity/sufficiency relationships can be added at either node declaration.
 
 
 Convenience Functions
@@ -171,8 +171,9 @@ Two convenience functions are provided for writing the inner dictionaries of the
   Schematic example: :code:`[A, B] -> {A: [], B: []}`
 
 - :code:`reverse_adjacencies`: given a :code:`<NODES TO WHICH THERE IS AN EDGE>`, return the reverse-direction
-  :code:`<NODES TO WHICH THERE IS AN EDGE>`, possibly losing singletons
-  (an :code:`allow_losing_singletons` argument is :code:`False` by default, raising exceptions to prevent losses).
+  :code:`<NODES TO WHICH THERE IS AN EDGE>`, possibly losing singletons and joint-sufficiency relationships
+  (:code:`allow_losing_singletons` and :code:`allow_losing_joint_sufficiency` arguments are :code:`False` by default,
+  raising exceptions to prevent losses).
   This is useful when it is more natural to declare nodes of a specific type as the endpoint of edges
   from other nodes (perhaps of mixed types);
   e.g. when the node type in question is semantically a feature or qualifier applicable to more than one kind of entity
@@ -183,13 +184,13 @@ Two convenience functions are provided for writing the inner dictionaries of the
 Note on Necessity & Sufficiency
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Use of necessity and sufficiency edge attributes is on by default in the provided :code:`Scanner` functions,
-and a detailed warning (including possible solutions) is produced if possibly problematic graph features occur,
+Use of necessity and sufficiency attributes is on by default in the provided :code:`Scanner` functions,
+and a detailed warning is produced if possibly problematic graph features occur,
 but for the sake of user customisation, experimentation and debugging,
 support for each can be turned off separately by setting the :code:`Scanner`-s' :code:`check_necessity` and/or :code:`check_sufficiency`
 arguments to :code:`False` (either when constructing the :code:`GSM` or individually at each :code:`GSM.step` call).
 
-(The warning will appear if required and containes more details, but the gist of the possible issue is that
+(The warning will appear if required and contains more details, but the gist of the possible issue is that
 the presence of neither-necessary-nor-sufficient neighbours of a candidate node in the state
 does not protect against the absence of sufficient ones).
 
