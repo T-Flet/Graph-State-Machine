@@ -4,10 +4,10 @@ _shorthand_graph = {
     'Distribution': {
         'Normal': ['stan_glm', 'glm', 'gaussian'],
         'Binomial': ['stan_glm', 'glm', 'binomial'],
-        'Multinomial': ['stan_polr', 'polr_tolerant', 'multinom'],
+        'Categorical': ['stan_polr', 'polr_tolerant', 'multinom'],
         'Poisson': ['stan_glm', 'glm', 'poisson'],
         'Beta': ['stan_betareg', 'betareg'],
-        'gamma': ['stan_glm', 'glm', 'Gamma'],
+        'Gamma_': ['stan_glm', 'glm', 'Gamma'],
         'Inverse Gaussian': ['stan_glm', 'glm', 'inverse.gaussian']
     },
     'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
@@ -15,10 +15,10 @@ _shorthand_graph = {
     'Data Feature': reverse_adjacencies({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
         'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
         'Poisson': ['Non-Negative', 'Integer', 'Consecutive', 'Counts-Like'],
-        'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
+        'Categorical': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
         'Normal': ['Integer', 'Real', '+ and -'],
         'Beta': ['Real', '[0,1]'],
-        'gamma': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
+        'Gamma_': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
         'Inverse Gaussian': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
         'polr_tolerant': ['Consecutive']
     })

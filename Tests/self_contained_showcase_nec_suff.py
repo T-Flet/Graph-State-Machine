@@ -4,10 +4,10 @@ _shorthand_graph = {
     'Distribution': {
         'Normal': dict(necessary_for = ['gaussian'], plain = ['stan_glm', 'glm']), # vv the 'are_sufficient' edges below are suggested by a warning
         'Binomial': dict(necessary_for = ['binomial'], plain = ['stan_glm', 'glm'], are_sufficient = [['Integer', '[0,1]']]),
-        'Multinomial': dict(necessary_for = ['multinom'], plain = ['stan_polr', 'polr_tolerant'], are_sufficient = [['Consecutive', 'Non-Negative', 'Integer']]),
+        'Categorical': dict(necessary_for = ['multinom'], plain = ['stan_polr', 'polr_tolerant'], are_sufficient = [['Consecutive', 'Non-Negative', 'Integer']]),
         'Poisson': dict(necessary_for = ['poisson'], plain = ['stan_glm', 'glm']),
         'Beta': dict(necessary_for = ['betareg'], plain = ['stan_betareg']),
-        'gamma': dict(necessary_for = ['Gamma'], plain = ['stan_glm', 'glm']),
+        'Gamma_': dict(necessary_for = ['Gamma'], plain = ['stan_glm', 'glm']),
         'Inverse Gaussian': dict(necessary_for = ['inverse.gaussian'], plain = ['stan_glm', 'glm']),
     }, # The end-nodes of the edges above need to be declared as of some type (below), but no need to repeat or split the edges
     'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
@@ -15,10 +15,10 @@ _shorthand_graph = {
     'Data Feature': reverse_adjacencies({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
         'Binomial': dict(are_sufficient = ['Binary', 'Boolean', ['Integer', '[0,1]']]), # These generate an error which is downgraded to a warning below
         'Poisson': dict(are_necessary = ['Counts-Like', 'Non-Negative', 'Integer'], plain = ['Consecutive']),
-        'Multinomial': dict(are_sufficient = ['Factor', ['Consecutive', 'Non-Negative', 'Integer']]), # Same error/warning as above
+        'Categorical': dict(are_sufficient = ['Factor', ['Consecutive', 'Non-Negative', 'Integer']]), # Same error/warning as above
         'Normal': ['Integer', 'Real', '+ and -'],
         'Beta': dict(are_necessary = ['Real', '[0,1]']),
-        'gamma': dict(are_necessary = ['Non-Negative', 'Non-Zero'], plain = ['Integer', 'Real']),
+        'Gamma_': dict(are_necessary = ['Non-Negative', 'Non-Zero'], plain = ['Integer', 'Real']),
         'Inverse Gaussian': dict(are_necessary = ['Non-Negative', 'Non-Zero'], plain = ['Integer', 'Real']),
         'polr_tolerant': ['Consecutive']
     }, allow_losing_joint_sufficiency = True) # This downgrades an error to a warning which suggests to place some edges elsewhere

@@ -45,28 +45,43 @@ class GSM:
         '''Note: this method just returns the step result; it does not update the state'''
         return self.scanner(self.graph, self.selector(self.state), *args, **kwargs)
 
-    def step(self, *args, **kwargs):
-        '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result)'''
-        if args and kwargs: raise TypeError('Step function arguments should be either all named or all unnamed')
-        def f():
-            scan_result = self._scan(*args, **kwargs)
-            self.log.append(dict(method = 'step', scan_result = scan_result, scanner_arguments = self._ensure_scanner_args_are_named(args, kwargs)))
-            self.state, self.graph = self.updater(self.state, self.graph, scan_result)
-        expand_user_warning(f, lambda: f'; last log entry: {self.log[-1]}')
+    def step(self, *args, conditional = False, **kwargs):
+        '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result).
+            If conditional == True, the step is performed only if no node of the requested type is in state.
+                In that case an ASSUMPTION is made:
+                that the first (named or unnamed) argument of scanner (after graph and state) is a singleton list of the type of node to look for'''
+        if args and kwargs: raise TypeError('Step function arguments should be either all named or all unnamed (except for "conditional", which should always be named)')
+        node_type = (args if args else (list(kwargs.values())))[0][0]
+        if conditional and self.type_in_state(node_type):
+            warnings.warn(f'Step of type \'{node_type}\' not taken because nodes of that type were already in state')
+            return self
+        else:
+            def f():
+                scan_result = self._scan(*args, **kwargs)
+                self.log.append(dict(method = 'step', scan_result = scan_result, scanner_arguments = self._ensure_scanner_args_are_named(args, kwargs)))
+                self.state, self.graph = self.updater(self.state, self.graph, scan_result)
+            expand_user_warning(f, lambda: f'; last log entry: {self.log[-1]}')
         return self
 
-    def consecutive_steps(self, *scanners_arguments):
-        '''Perform steps of the given node types one after the other, i.e. using the progressively updated state for each new step'''
-        for ss in scanners_arguments: self.step(**self._ensure_scanner_args_are_named(ss))
+    def consecutive_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False):
+        '''Perform steps of the given node types one after the other, i.e. using the progressively updated state for each new step.
+            Note: steps can be made either all standard or all conditional.'''
+        for ss in scanners_arguments: self.step(**self._ensure_scanner_args_are_named(ss), conditional = conditional)
         return self
 
-    def parallel_steps(self, *scanners_arguments: List[Union[List, Dict]]):
-        '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known'''
+    def parallel_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False):
+        '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known.
+            Note: steps can be made either all standard or all conditional.'''
         scanners_arguments = [self._ensure_scanner_args_are_named(ss) for ss in scanners_arguments]
         scan_results = [self._scan(**ss) for ss in scanners_arguments]
         for rs, ss in zip(scan_results, scanners_arguments):
-            def f(): self.state, self.graph = self.updater(self.state, self.graph, rs)
-            expand_user_warning(f, lambda: f'; (parallel) step arguments: {ss}')
+            node_type = list(ss.values())[0][0] # no list check because ss is already guaranteed to be a dictionary
+            if conditional and self.type_in_state(node_type):
+                warnings.warn(f'Step of type \'{node_type}\' not taken because nodes of that type were already in state')
+                return self
+            else:
+                def f(): self.state, self.graph = self.updater(self.state, self.graph, rs)
+                expand_user_warning(f, lambda: f'; (parallel) step arguments: {ss}')
         self.log.append(dict(method = 'parallel_steps', scan_results = scan_results, scanners_arguments = scanners_arguments))
         return self
 
@@ -86,5 +101,7 @@ class GSM:
         '''If ss is not a dictionary of args, then line it up with the expected names and make it one; fallback to otherwise_dict if present'''
         return dict(zip(list(signature(self.scanner).parameters.keys())[2:], ss)) if ss and (isinstance(ss, list) or isinstance(ss, tuple)) else \
                 otherwise_dict if otherwise_dict else ss
+
+    def type_in_state(self, node_type: NodeType) -> bool: return node_type in self.graph.type_set(self.selector(self.state))
 
 

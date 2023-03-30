@@ -45,8 +45,9 @@ def reverse_adjacencies(one_type_graph: Dict[str, List[str]], allow_losing_singl
 
     return reverse_subgraph
 
-def strs_as_keys(strs: List[str], unique_value: List[str] = []) -> Dict[str, List[str]]:
+def strs_as_keys(strs: List[str], unique_value: List[str] = None) -> Dict[str, List[str]]:
     '''Make a dictionary with the given keys and all the values being the provided one'''
+    if not unique_value: unique_value = []
     return {t: unique_value for t in strs}
 
 

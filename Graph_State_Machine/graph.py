@@ -1,3 +1,4 @@
+from operator import itemgetter
 import networkx as nx
 import numpy as np
 import matplotlib.colors as mcolors
@@ -142,7 +143,7 @@ class Graph:
 
     # Utility methods
 
-    def type_set(self, nodes: List[Node]) -> Set[NodeType]: return set(self.nodes_to_types[n] for n in nodes)
+    def type_set(self, nodes: List[Node]) -> Set[NodeType]: return set(itemgetter(*nodes)(self.nodes_to_types))
 
     def relevant_neighbours(self, nodes: List[Node], good_types: List[NodeType] = None, bad_types: List[NodeType] = None) -> List[List[Node]]:
         '''Return neighbours of state nodes of the specified types or all types if none specified'''
@@ -253,12 +254,13 @@ class Graph:
                                   line = dict(color = col, width = 2)) ))
 
             # Nodes in State
-            node_x, node_y = map(list, zip(*[coords[n] for n in nodes_with_outline]))
-            traces.append(go.Scatter(x = node_x, y = node_y,
-                name = 'Node in State', mode = 'markers', showlegend = True,
-                #legendgroup = 'State', legendgrouptitle_text = 'State',
-                marker = dict(showscale = False, size = 17, color = 'rgba(0,0,0,0)',
-                              line = dict(color = 'black', width = 3)) ))
+            if nodes_with_outline:
+                node_x, node_y = map(list, zip(*[coords[n] for n in nodes_with_outline]))
+                traces.append(go.Scatter(x = node_x, y = node_y,
+                    name = 'Node in State', mode = 'markers', showlegend = True,
+                    #legendgroup = 'State', legendgrouptitle_text = 'State',
+                    marker = dict(showscale = False, size = 17, color = 'rgba(0,0,0,0)',
+                                  line = dict(color = 'black', width = 3)) ))
 
             # All together
             fig = go.Figure(data = traces, layout = go.Layout(
@@ -281,6 +283,7 @@ class Graph:
                 for node in self.G.nodes:
                     fig.add_annotation(x = coords[node][0], y = coords[node][1], showarrow = False,
                         text = node, font = dict(size = 12, color = 'black'), yshift = -17)
+                        # textangle = -90, xshift = +17) # flip both signs to flip side
 
             # Centre legend (only useful for shell layout)
             # fig.update_layout(legend = dict(x = 0.45, y = 0.55, bgcolor = 'rgba(0,0,0,0)'))
