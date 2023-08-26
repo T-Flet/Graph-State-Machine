@@ -54,6 +54,14 @@ Given a graph with typed nodes and a state object from which a list of nodes can
 :code:`Updater`
   A function to process the scan result and thus update the state and possibly the graph itself
 
+
+.. figure:: GSM_Diagram.png
+    :align: center
+    :figclass: align-center
+
+    Schematic representation of a GSM step (with data flow in dashed arrows)
+
+
 This computational construct is different from a finite state machine on a graph and from a
 graph cellular automaton, but it shares some similarities with both in that it generalises some of
 their features for the benefit of human ease of design and readability.
@@ -219,10 +227,10 @@ A small GSM which selects the appropriate R linear regression function and distr
         'Distribution': {
             'Normal': ['stan_glm', 'glm', 'gaussian'],
             'Binomial': ['stan_glm', 'glm', 'binomial'],
-            'Multinomial': ['stan_polr', 'polr_tolerant', 'multinom'],
+            'Categorical': ['stan_polr', 'polr_tolerant', 'multinom'],
             'Poisson': ['stan_glm', 'glm', 'poisson'],
             'Beta': ['stan_betareg', 'betareg'],
-            'gamma': ['stan_glm', 'glm', 'Gamma'],
+            'Gamma_': ['stan_glm', 'glm', 'Gamma'],
             'Inverse Gaussian': ['stan_glm', 'glm', 'inverse.gaussian']
         },
         'Family Implementation': strs_as_keys(['binomial', 'poisson', 'Gamma', 'gaussian', 'inverse.gaussian']),
@@ -230,10 +238,10 @@ A small GSM which selects the appropriate R linear regression function and distr
         'Data Feature': reverse_adjacencies({ # Reverse-direction definition here since more readable i.e. defining the contents of the lists
             'Binomial': ['Binary', 'Integer', '[0,1]', 'Boolean'],
             'Poisson': ['Non-Negative', 'Integer', 'Consecutive', 'Counts-Like'],
-            'Multinomial': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
+            'Categorical': ['Factor', 'Consecutive', 'Non-Negative', 'Integer'],
             'Normal': ['Integer', 'Real', '+ and -'],
             'Beta': ['Real', '[0,1]'],
-            'gamma': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
+            'Gamma_': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
             'Inverse Gaussian': ['Non-Negative', 'Integer', 'Real', 'Non-Zero'],
             'polr_tolerant': ['Consecutive']
         })

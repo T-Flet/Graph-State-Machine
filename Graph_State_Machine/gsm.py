@@ -6,14 +6,15 @@ from inspect import signature
 
 from Graph_State_Machine.selectors import identity
 from Graph_State_Machine.scanners import by_score
-from Graph_State_Machine.updaters import list_accumulator
+from Graph_State_Machine.updaters import list_accumulator, list_accumulator_greedy
 from Graph_State_Machine.types import *
 from Graph_State_Machine.Util.misc import expand_user_warning
 
 
 class GSM:
     def __init__(self, graph: Graph, state: State = [],
-                 node_scanner: Scanner = by_score(), state_updater: Updater = list_accumulator, selector = identity):
+                 node_scanner: Scanner = by_score(), state_updater: Updater = list_accumulator, selector = identity,
+                 greedy_state_updater: Updater = list_accumulator_greedy):
         '''Define a Graph State Machine by providing the starting graph and state and the two operation functions:
             - the scanner, which assigns scores to nodes of interest given the state nodes (e.g. their neighbours)
             - the updater, which updates the state based on the scanner's output; it can update the graph too (though it does not have to)
@@ -26,6 +27,7 @@ class GSM:
         self.state = state
         self.selector = selector
         self.updater = state_updater
+        self.greedy_updater = greedy_state_updater
 
         self.log = [dict(method = '__init__', graph = graph, state = state, node_scanner = node_scanner,
                          state_updater = state_updater, list_accumulator = list_accumulator, selector = selector)]
@@ -35,21 +37,22 @@ class GSM:
 
     # Core functionality methods
 
-    def extend_with(self, extension_graph):
+    def extend_with(self, extension_graph, warn_about_problematic_sufficiencies = True):
         '''Note: returns a new object; does not affect the original'''
         res = deepcopy(self)
-        res.graph = res.graph.extend_with(extension_graph)
+        res.graph = res.graph.extend_with(extension_graph, warn_about_problematic_sufficiencies)
         return res
 
     def _scan(self, *args, **kwargs) -> List[Tuple[Node, Any]]:
         '''Note: this method just returns the step result; it does not update the state'''
         return self.scanner(self.graph, self.selector(self.state), *args, **kwargs)
 
-    def step(self, *args, conditional = False, **kwargs):
+    def step(self, *args, conditional = False, greedy = False, **kwargs):
         '''Scan nodes of interest and perform a step (i.e. have the step_handler update the state by processing the scan result).
             If conditional == True, the step is performed only if no node of the requested type is in state.
                 In that case an ASSUMPTION is made:
-                that the first (named or unnamed) argument of scanner (after graph and state) is a singleton list of the type of node to look for'''
+                that the first (named or unnamed) argument of scanner (after graph and state) is a singleton list of the type of node to look for.
+            If greedy == True, then the step uses the self.greedy_updater updater (THE DEFAULT ONE IS ONLY FOR LIST-TYPE STATES), adding ALL candidates to state.'''
         if args and kwargs: raise TypeError('Step function arguments should be either all named or all unnamed (except for "conditional", which should always be named)')
         node_type = (args if args else (list(kwargs.values())))[0][0]
         if conditional and self.type_in_state(node_type):
@@ -59,17 +62,17 @@ class GSM:
             def f():
                 scan_result = self._scan(*args, **kwargs)
                 self.log.append(dict(method = 'step', scan_result = scan_result, scanner_arguments = self._ensure_scanner_args_are_named(args, kwargs)))
-                self.state, self.graph = self.updater(self.state, self.graph, scan_result)
+                self.state, self.graph = (self.greedy_updater if greedy else self.updater)(self.state, self.graph, scan_result)
             expand_user_warning(f, lambda: f'; last log entry: {self.log[-1]}')
         return self
 
-    def consecutive_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False):
+    def consecutive_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False, greedy = False):
         '''Perform steps of the given node types one after the other, i.e. using the progressively updated state for each new step.
             Note: steps can be made either all standard or all conditional.'''
-        for ss in scanners_arguments: self.step(**self._ensure_scanner_args_are_named(ss), conditional = conditional)
+        for ss in scanners_arguments: self.step(**self._ensure_scanner_args_are_named(ss), conditional = conditional, greedy = greedy)
         return self
 
-    def parallel_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False):
+    def parallel_steps(self, *scanners_arguments: List[Union[List, Dict]], conditional = False, greedy = False):
         '''Perform steps of the given node types all starting from the same state, i.e. only apply state updates after scan results are known.
             Note: steps can be made either all standard or all conditional.'''
         scanners_arguments = [self._ensure_scanner_args_are_named(ss) for ss in scanners_arguments]
@@ -80,7 +83,7 @@ class GSM:
                 warnings.warn(f'Step of type \'{node_type}\' not taken because nodes of that type were already in state')
                 return self
             else:
-                def f(): self.state, self.graph = self.updater(self.state, self.graph, rs)
+                def f(): self.state, self.graph = (self.greedy_updater if greedy else self.updater)(self.state, self.graph, rs)
                 expand_user_warning(f, lambda: f'; (parallel) step arguments: {ss}')
         self.log.append(dict(method = 'parallel_steps', scan_results = scan_results, scanners_arguments = scanners_arguments))
         return self

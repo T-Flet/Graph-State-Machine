@@ -135,10 +135,10 @@ class Graph:
         unsorted = group_by(lambda n: self.nodes_to_types[n], nodes if nodes else self.G.nodes())
         return {nt: unsorted[nt] for nt in sorted(unsorted)}
 
-    def extend_with(self, extension_graph):
+    def extend_with(self, extension_graph, warn_about_problematic_sufficiencies = True):
         '''Note: returns a new object; does not affect the original'''
         res = deepcopy(self)
-        return res._set_graph(nx.compose(res.G, extension_graph.G))
+        return res._set_graph(nx.compose(res.G, extension_graph.G),    warn_about_problematic_sufficiencies)
 
 
     # Utility methods

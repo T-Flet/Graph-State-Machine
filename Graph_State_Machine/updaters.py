@@ -25,3 +25,11 @@ def list_in_dict_accumulator(dict_key: str) -> Updater:
     return dict_accumulator_closure
 
 
+def list_accumulator_greedy(state: State, graph: Graph, scan_result: ScanResult) -> Tuple[State, Graph]:
+    '''Never removes from state and adds ALL NODES from step_result to a simple-list state'''
+    if scan_result:  return state + scan_result[0], graph
+    else:
+        warn('A Scanner returned no result: no appropriate candidates identified')
+        return state, graph
+
+
